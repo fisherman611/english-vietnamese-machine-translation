@@ -3,7 +3,11 @@ import re
 import nltk
 from nltk.tokenize import word_tokenize
 
-nltk.download("punkt")
+# nltk.download("punkt")
+
+from spellchecker import SpellChecker
+
+spell = SpellChecker()
 
 vowels_lower = (
     "aáàảãạ"
@@ -109,3 +113,25 @@ def tokenize_and_join(sentence: str) -> str:
     """
     tokens = word_tokenize(sentence)
     return " ".join(tokens)
+
+
+def spell_correction(sentence: str) -> str:
+    """
+    Corrects each word's spelling in a sentence by splitting it, checking each word, and rejoining them. 
+    If no correction is found, the original word remains.
+    
+    Args:
+        sentence (str): The input sentence to be spell-checked.
+    
+    Returns:
+        str: The sentence with corrected spelling for each word.
+    """
+    words = sentence.split()
+    new_words = []
+    for word in words:
+        new_word = (
+            spell.correction(word) if spell.correction(word) is not None else word
+        )
+        new_words.append(new_word)
+
+    return " ".join(new_words)
