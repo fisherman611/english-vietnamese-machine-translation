@@ -14,6 +14,10 @@ print("Train shape:", train.shape)
 print("Test shape:", test.shape)
 print("Validation shape:", val.shape)
 
-train.to_csv("data/train.csv", index=False)
-test.to_csv("data/test.csv", index=False)
-val.to_csv("data/val.csv", index=False)
+train.to_csv("data/train_of_300k.csv", index=False)
+test.to_csv("data/test_of_300k.csv", index=False)
+val.to_csv("data/val_of_300k.csv", index=False)
+
+# train.to_csv("data/train_of_500k.csv", index=False)
+# test.to_csv("data/test_of_500k.csv", index=False)
+# val.to_csv("data/val_of_500k.csv", index=False)
