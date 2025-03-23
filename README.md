@@ -11,7 +11,7 @@ We will implement and compare the following machine translation methods:
 
 - **Rule-Based Machine Translation (RBMT)** – Uses linguistic rules and grammar-based approaches.  
 - **Statistical Machine Translation (SMT)** – Leverages statistical models to determine the most probable translation.  
-- **Neural Machine Translation (NMT)** – Utilizes deep learning models, particularly **LSTM** and **Transformers** (pretrained models like **BERT**, **GPT**, **mBART50**).  
+- **Neural Machine Translation (NMT)** – Utilizes deep learning models, particularly **LSTM** and **Transformers** (pretrained models like **BERT**, **GPT**, **mBART50**, **T5**).  
 
 ### 🔹 **Evaluation Metrics**  
 To assess translation quality, we will use the following metrics:  
@@ -100,7 +100,8 @@ This approach will focus on **deep learning models** to improve translation accu
 ✅ **Transformer-based NMT** (using pretrained models from Hugging Face)  
 - **BERT**  
 - **GPT**
-- **mBART50**  
+- **mBART50**
+- **T5**
 
 📌 **References:**  
 
@@ -113,6 +114,8 @@ This approach will focus on **deep learning models** to improve translation accu
 🔗 [Fine-tuning Large Language Models for Adaptive Machine Translation](https://arxiv.org/pdf/2312.12740v1)
 
 🔗 [NMT mBART50-Machine-Translation](https://github.com/Vu0401/NMT_mBART50-Machine-Translation)
+
+🔗 [T5](https://huggingface.co/docs/transformers/model_doc/t5)
 
 ---
 
