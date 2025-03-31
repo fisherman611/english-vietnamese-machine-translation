@@ -78,12 +78,9 @@ def fix_non_ascii_characters(sentence: str) -> str:
 
 
 def general_processing(sentence: str,
-                       max_words=50,
-                       apply_truecase=False,
-                       selective_case=False) -> str:
+                       max_words=50) -> str:
     """
-    Clean and preprocess a sentence by removing extra spaces, HTML, and URLs,
-    then apply casing (truecase, selective lowercasing, or full lowercase).
+    Clean and preprocess a sentence by removing extra spaces, HTML, and URLs.
     Returns None if the sentence exceeds max_words.
     """
     if len(sentence.split()) > max_words:
@@ -93,17 +90,29 @@ def general_processing(sentence: str,
     sentence = BeautifulSoup(sentence, "html.parser").get_text(separator=" ")
     sentence = URL_PATTERN.sub("", sentence)
 
-    if apply_truecase:
-        sentence = truecase.get_true_case(sentence)
-    elif selective_case:
-        doc = nlp(sentence)
-        sentence = ' '.join([
-            token.text if token.pos_ == "PROPN" else token.text.lower()
-            for token in doc
-        ])
-    else:
-        sentence = sentence.lower()
-
     return sentence
 
-# print(general_processing(fix_non_ascii_characters('Sergio Ramós played at Laliga'), selective_case=True))
+
+def english_sentence_processing(sentence: str,
+                                max_words=50) -> str:
+    """ 
+    Process an English sentence by converting non-ASCII characters to ASCII and applying general cleaning.
+    """
+
+    sentence = fix_non_ascii_characters(sentence)
+    sentence = general_processing(sentence,
+                                  max_words=max_words)
+    return sentence
+
+
+def vietnamese_sentence_processing(sentence: str,
+                                   max_words=50) -> str:
+    """ 
+    Process a Vietnamese sentence if it contains only allowed characters and applying general cleaning.
+    """
+
+    if validate_vietnamese_sentence(sentence):
+        sentence = general_processing(sentence,
+                                      max_words=max_words)
+        return sentence
+    return None
