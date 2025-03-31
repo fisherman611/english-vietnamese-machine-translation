@@ -2,7 +2,6 @@ import re
 import pandas as pd
 from bs4 import BeautifulSoup  # For HTML cleaning
 import spacy
-import truecase
 import string
 from unidecode import unidecode
 
