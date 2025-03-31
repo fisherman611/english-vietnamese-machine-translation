@@ -1,137 +1,109 @@
-import string
 import re
-import nltk
-from nltk.tokenize import word_tokenize
+import pandas as pd
+from bs4 import BeautifulSoup  # For HTML cleaning
+import spacy
+import truecase
+import string
+from unidecode import unidecode
 
-# nltk.download("punkt")
+# Load spaCy's English model.
+nlp = spacy.load("en_core_web_sm")
 
-from spellchecker import SpellChecker
+# Precompile regex patterns once for efficiency.
+MULTI_SPACE_PATTERN = re.compile(r"\s+")
+URL_PATTERN = re.compile(r"https?://\S+|www\.\S+")
 
-spell = SpellChecker()
+vowels_lower = ("aáàảãạ"
+                "ăắằẳẵặ"
+                "âấầẩẫậ"
+                "eéèẻẽẹ"
+                "êếềểễệ"
+                "iíìỉĩị"
+                "oóòỏõọ"
+                "ôốồổỗộ"
+                "ơớờởỡợ"
+                "uúùủũụ"
+                "ưứừửữự"
+                "yýỳỷỹỵ")
 
-vowels_lower = (
-    "aáàảãạ"
-    "ăắằẳẵặ"
-    "âấầẩẫậ"
-    "eéèẻẽẹ"
-    "êếềểễệ"
-    "iíìỉĩị"
-    "oóòỏõọ"
-    "ôốồổỗộ"
-    "ơớờởỡợ"
-    "uúùủũụ"
-    "ưứừửữự"
-    "yýỳỷỹỵ"
-)
+vowels_upper = ("AÁÀẢÃẠ"
+                "ĂẮẰẲẴẶ"
+                "ÂẤẦẨẪẬ"
+                "EÉÈẺẼẸ"
+                "ÊẾỀỂỄỆ"
+                "IÍÌỈĨỊ"
+                "OÓÒỎÕỌ"
+                "ÔỐỒỔỖỘ"
+                "ƠỚỜỞỠỢ"
+                "UÚÙỦŨỤ"
+                "ƯỨỪỬỮỰ"
+                "YÝỲỶỸỴ")
 
-vowels_upper = (
-    "AÁÀẢÃẠ"
-    "ĂẮẰẲẴẶ"
-    "ÂẤẦẨẪẬ"
-    "EÉÈẺẼẸ"
-    "ÊẾỀỂỄỆ"
-    "IÍÌỈĨỊ"
-    "OÓÒỎÕỌ"
-    "ÔỐỒỔỖỘ"
-    "ƠỚỜỞỠỢ"
-    "UÚÙỦŨỤ"
-    "ƯỨỪỬỮỰ"
-    "YÝỲỶỸỴ"
-)
-# English alphabet
 alphabet_lower = "abcdefghijklmnopqrstuvwxyz"
 alphabet_upper = alphabet_lower.upper()
 
-# Official Vietnamese consonants: b, c, d, đ, g, h, k, l, m, n, p, q, r, s, t, v, x
 consonants_lower = "bcdđghklmnpqrstvx"
 consonants_upper = consonants_lower.upper()
 
-# Punctuation
 allowed_punctuations = string.punctuation + " "
-
-# Digits
 digits = "0123456789"
 
-# Combine all allowed characters
-allowed_vietnamese = "".join(
+# Combine all allowed characters into one string
+allowed_pattern = "".join(
     sorted(
-        set(
-            vowels_lower
-            + vowels_upper
-            + alphabet_lower
-            + alphabet_upper
-            + consonants_lower
-            + consonants_upper
-            + allowed_punctuations
-            + digits
-        )
-    )
-)
+        set(vowels_lower + vowels_upper + alphabet_lower + alphabet_upper +
+            consonants_lower + consonants_upper + allowed_punctuations +
+            digits)))
+
+# Escape the allowed characters so that regex meta-characters are taken literally.
+escaped_allowed = re.escape(allowed_pattern)
+regex_pattern = rf"^[{escaped_allowed}]+$"
+
+# Compile the regex
+VIETNAMESE_ALLOWED_PATTERN = re.compile(regex_pattern)
 
 
-def is_valid_vietnamese(sentence: str) -> bool:
+def validate_vietnamese_sentence(sentence: str) -> bool:
     """
-    Check if a Vietnamese sentence contains only allowed characters.
-
-    Args:
-        sentence (str): The Vietnamese sentence to validate.
-
-    Returns:
-        bool: True if all characters in the sentence are allowed, False otherwise.
+    Return True if the Vietnamese sentence contains only allowed characters; otherwise, False.
     """
-    return all(char in allowed_vietnamese for char in sentence)
+    return VIETNAMESE_ALLOWED_PATTERN.fullmatch(sentence) is not None
 
 
-def normalize_sentence(sentence: str) -> str:
+def fix_non_ascii_characters(sentence: str) -> str:
     """
-    Normalize a sentence by lowercasing and standardizing whitespace.
-
-    Args:
-        sentence (str): The sentence to normalize.
-
-    Returns:
-        str: The normalized sentence.
+    Replace non-ASCII characters in the sentence with their closest ASCII equivalents.
     """
-    # Lowercase the sentence and remove extra space at the left and right of the sentence
-    sentence = sentence.lower().strip()
+    return unidecode(sentence)
 
-    # Remove extra whitespace within the sentence
-    sentence = re.sub(r"\s+", " ", sentence)
+
+def general_processing(sentence: str,
+                       max_words=50,
+                       apply_truecase=False,
+                       selective_case=False) -> str:
+    """
+    Clean and preprocess a sentence by removing extra spaces, HTML, and URLs,
+    then apply casing (truecase, selective lowercasing, or full lowercase).
+    Returns None if the sentence exceeds max_words.
+    """
+    if len(sentence.split()) > max_words:
+        return None
+
+    sentence = MULTI_SPACE_PATTERN.sub(" ", sentence).strip()
+    sentence = BeautifulSoup(sentence, "html.parser").get_text(separator=" ")
+    sentence = URL_PATTERN.sub("", sentence)
+
+    if apply_truecase:
+        sentence = truecase.get_true_case(sentence)
+    elif selective_case:
+        doc = nlp(sentence)
+        sentence = ' '.join([
+            token.text if token.pos_ == "PROPN" else token.text.lower()
+            for token in doc
+        ])
+    else:
+        sentence = sentence.lower()
 
     return sentence
 
-
-def tokenize_and_join(sentence: str) -> str:
-    """
-    Tokenize a sentence using NLTK and join tokens to re-struct a sentence.
-
-    Args:
-        sentence (str): The sentence to tokenize.
-
-    Returns:
-        str: A string with tokens joined by a space.
-    """
-    tokens = word_tokenize(sentence)
-    return " ".join(tokens)
-
-
-def spell_correction(sentence: str) -> str:
-    """
-    Corrects each word's spelling in a sentence by splitting it, checking each word, and rejoining them. 
-    If no correction is found, the original word remains.
-    
-    Args:
-        sentence (str): The input sentence to be spell-checked.
-    
-    Returns:
-        str: The sentence with corrected spelling for each word.
-    """
-    words = sentence.split()
-    new_words = []
-    for word in words:
-        new_word = (
-            spell.correction(word) if spell.correction(word) is not None else word
-        )
-        new_words.append(new_word)
-
-    return " ".join(new_words)
+# print(general_processing(fix_non_ascii_characters('Sergio Ramós played at Laliga'), selective_case=True))
