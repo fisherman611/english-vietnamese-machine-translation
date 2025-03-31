@@ -12,31 +12,35 @@ nlp = spacy.load("en_core_web_sm")
 MULTI_SPACE_PATTERN = re.compile(r"\s+")
 URL_PATTERN = re.compile(r"https?://\S+|www\.\S+")
 
-vowels_lower = ("aáàảãạ"
-                "ăắằẳẵặ"
-                "âấầẩẫậ"
-                "eéèẻẽẹ"
-                "êếềểễệ"
-                "iíìỉĩị"
-                "oóòỏõọ"
-                "ôốồổỗộ"
-                "ơớờởỡợ"
-                "uúùủũụ"
-                "ưứừửữự"
-                "yýỳỷỹỵ")
+vowels_lower = (
+    "aáàảãạ"
+    "ăắằẳẵặ"
+    "âấầẩẫậ"
+    "eéèẻẽẹ"
+    "êếềểễệ"
+    "iíìỉĩị"
+    "oóòỏõọ"
+    "ôốồổỗộ"
+    "ơớờởỡợ"
+    "uúùủũụ"
+    "ưứừửữự"
+    "yýỳỷỹỵ"
+)
 
-vowels_upper = ("AÁÀẢÃẠ"
-                "ĂẮẰẲẴẶ"
-                "ÂẤẦẨẪẬ"
-                "EÉÈẺẼẸ"
-                "ÊẾỀỂỄỆ"
-                "IÍÌỈĨỊ"
-                "OÓÒỎÕỌ"
-                "ÔỐỒỔỖỘ"
-                "ƠỚỜỞỠỢ"
-                "UÚÙỦŨỤ"
-                "ƯỨỪỬỮỰ"
-                "YÝỲỶỸỴ")
+vowels_upper = (
+    "AÁÀẢÃẠ"
+    "ĂẮẰẲẴẶ"
+    "ÂẤẦẨẪẬ"
+    "EÉÈẺẼẸ"
+    "ÊẾỀỂỄỆ"
+    "IÍÌỈĨỊ"
+    "OÓÒỎÕỌ"
+    "ÔỐỒỔỖỘ"
+    "ƠỚỜỞỠỢ"
+    "UÚÙỦŨỤ"
+    "ƯỨỪỬỮỰ"
+    "YÝỲỶỸỴ"
+)
 
 alphabet_lower = "abcdefghijklmnopqrstuvwxyz"
 alphabet_upper = alphabet_lower.upper()
@@ -50,9 +54,18 @@ digits = "0123456789"
 # Combine all allowed characters into one string
 allowed_pattern = "".join(
     sorted(
-        set(vowels_lower + vowels_upper + alphabet_lower + alphabet_upper +
-            consonants_lower + consonants_upper + allowed_punctuations +
-            digits)))
+        set(
+            vowels_lower
+            + vowels_upper
+            + alphabet_lower
+            + alphabet_upper
+            + consonants_lower
+            + consonants_upper
+            + allowed_punctuations
+            + digits
+        )
+    )
+)
 
 # Escape the allowed characters so that regex meta-characters are taken literally.
 escaped_allowed = re.escape(allowed_pattern)
@@ -76,14 +89,15 @@ def fix_non_ascii_characters(sentence: str) -> str:
     return unidecode(sentence)
 
 
-def general_processing(sentence: str,
-                       max_words=50) -> str:
+def general_processing(sentence: str, max_length=50, filtering=True) -> str:
     """
     Clean and preprocess a sentence by removing extra spaces, HTML, and URLs.
-    Returns None if the sentence exceeds max_words.
+    Filtering is applied if filtering is True.
+    Returns None if the sentence exceeds max_length.
     """
-    if len(sentence.split()) > max_words:
-        return None
+    if filtering == True:
+        if len(sentence.split()) > max_length:
+            return None
 
     sentence = MULTI_SPACE_PATTERN.sub(" ", sentence).strip()
     sentence = BeautifulSoup(sentence, "html.parser").get_text(separator=" ")
@@ -92,26 +106,24 @@ def general_processing(sentence: str,
     return sentence
 
 
-def english_sentence_processing(sentence: str,
-                                max_words=50) -> str:
-    """ 
+def english_sentence_processing(sentence: str, max_length=50, filtering=True) -> str:
+    """
     Process an English sentence by converting non-ASCII characters to ASCII and applying general cleaning.
     """
 
     sentence = fix_non_ascii_characters(sentence)
-    sentence = general_processing(sentence,
-                                  max_words=max_words)
+    sentence = general_processing(sentence, max_length=max_length, filtering=filtering)
     return sentence
 
 
-def vietnamese_sentence_processing(sentence: str,
-                                   max_words=50) -> str:
-    """ 
+def vietnamese_sentence_processing(sentence: str, max_length=50, filtering=True) -> str:
+    """
     Process a Vietnamese sentence if it contains only allowed characters and applying general cleaning.
     """
 
     if validate_vietnamese_sentence(sentence):
-        sentence = general_processing(sentence,
-                                      max_words=max_words)
+        sentence = general_processing(
+            sentence, max_length=max_length, filtering=filtering
+        )
         return sentence
     return None
