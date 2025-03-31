@@ -1,13 +1,16 @@
-import string
 import re
-import nltk
-from nltk.tokenize import word_tokenize
+import pandas as pd
+from bs4 import BeautifulSoup  # For HTML cleaning
+import spacy
+import string
+from unidecode import unidecode
 
-# nltk.download("punkt")
+# Load spaCy's English model.
+nlp = spacy.load("en_core_web_sm")
 
-from spellchecker import SpellChecker
-
-spell = SpellChecker()
+# Precompile regex patterns once for efficiency.
+MULTI_SPACE_PATTERN = re.compile(r"\s+")
+URL_PATTERN = re.compile(r"https?://\S+|www\.\S+")
 
 vowels_lower = (
     "aáàảãạ"
@@ -38,22 +41,18 @@ vowels_upper = (
     "ƯỨỪỬỮỰ"
     "YÝỲỶỸỴ"
 )
-# English alphabet
+
 alphabet_lower = "abcdefghijklmnopqrstuvwxyz"
 alphabet_upper = alphabet_lower.upper()
 
-# Official Vietnamese consonants: b, c, d, đ, g, h, k, l, m, n, p, q, r, s, t, v, x
 consonants_lower = "bcdđghklmnpqrstvx"
 consonants_upper = consonants_lower.upper()
 
-# Punctuation
 allowed_punctuations = string.punctuation + " "
-
-# Digits
 digits = "0123456789"
 
-# Combine all allowed characters
-allowed_vietnamese = "".join(
+# Combine all allowed characters into one string
+allowed_pattern = "".join(
     sorted(
         set(
             vowels_lower
@@ -68,70 +67,63 @@ allowed_vietnamese = "".join(
     )
 )
 
+# Escape the allowed characters so that regex meta-characters are taken literally.
+escaped_allowed = re.escape(allowed_pattern)
+regex_pattern = rf"^[{escaped_allowed}]+$"
 
-def is_valid_vietnamese(sentence: str) -> bool:
+# Compile the regex
+VIETNAMESE_ALLOWED_PATTERN = re.compile(regex_pattern)
+
+
+def validate_vietnamese_sentence(sentence: str) -> bool:
     """
-    Check if a Vietnamese sentence contains only allowed characters.
-
-    Args:
-        sentence (str): The Vietnamese sentence to validate.
-
-    Returns:
-        bool: True if all characters in the sentence are allowed, False otherwise.
+    Return True if the Vietnamese sentence contains only allowed characters; otherwise, False.
     """
-    return all(char in allowed_vietnamese for char in sentence)
+    return VIETNAMESE_ALLOWED_PATTERN.fullmatch(sentence) is not None
 
 
-def normalize_sentence(sentence: str) -> str:
+def fix_non_ascii_characters(sentence: str) -> str:
     """
-    Normalize a sentence by lowercasing and standardizing whitespace.
-
-    Args:
-        sentence (str): The sentence to normalize.
-
-    Returns:
-        str: The normalized sentence.
+    Replace non-ASCII characters in the sentence with their closest ASCII equivalents.
     """
-    # Lowercase the sentence and remove extra space at the left and right of the sentence
-    sentence = sentence.lower().strip()
+    return unidecode(sentence)
 
-    # Remove extra whitespace within the sentence
-    sentence = re.sub(r"\s+", " ", sentence)
+
+def general_processing(sentence: str, max_length=50, filtering=True) -> str:
+    """
+    Clean and preprocess a sentence by removing extra spaces, HTML, and URLs.
+    Filtering is applied if filtering is True.
+    Returns None if the sentence exceeds max_length.
+    """
+    if filtering == True:
+        if len(sentence.split()) > max_length:
+            return None
+
+    sentence = MULTI_SPACE_PATTERN.sub(" ", sentence).strip()
+    sentence = BeautifulSoup(sentence, "html.parser").get_text(separator=" ")
+    sentence = URL_PATTERN.sub("", sentence)
 
     return sentence
 
 
-def tokenize_and_join(sentence: str) -> str:
+def english_sentence_processing(sentence: str, max_length=50, filtering=True) -> str:
     """
-    Tokenize a sentence using NLTK and join tokens to re-struct a sentence.
-
-    Args:
-        sentence (str): The sentence to tokenize.
-
-    Returns:
-        str: A string with tokens joined by a space.
+    Process an English sentence by converting non-ASCII characters to ASCII and applying general cleaning.
     """
-    tokens = word_tokenize(sentence)
-    return " ".join(tokens)
+
+    sentence = fix_non_ascii_characters(sentence)
+    sentence = general_processing(sentence, max_length=max_length, filtering=filtering)
+    return sentence
 
 
-def spell_correction(sentence: str) -> str:
+def vietnamese_sentence_processing(sentence: str, max_length=50, filtering=True) -> str:
     """
-    Corrects each word's spelling in a sentence by splitting it, checking each word, and rejoining them. 
-    If no correction is found, the original word remains.
-    
-    Args:
-        sentence (str): The input sentence to be spell-checked.
-    
-    Returns:
-        str: The sentence with corrected spelling for each word.
+    Process a Vietnamese sentence if it contains only allowed characters and applying general cleaning.
     """
-    words = sentence.split()
-    new_words = []
-    for word in words:
-        new_word = (
-            spell.correction(word) if spell.correction(word) is not None else word
+
+    if validate_vietnamese_sentence(sentence):
+        sentence = general_processing(
+            sentence, max_length=max_length, filtering=filtering
         )
-        new_words.append(new_word)
-
-    return " ".join(new_words)
+        return sentence
+    return None
