@@ -5,6 +5,11 @@ import spacy
 import string
 from unidecode import unidecode
 
+import json
+
+with open("config.json", "r") as json_file:
+    cfg = json.load(json_file)
+
 # Load spaCy's English model.
 nlp = spacy.load("en_core_web_sm")
 
@@ -127,3 +132,75 @@ def vietnamese_sentence_processing(sentence: str, max_length=50, filtering=True)
         )
         return sentence
     return None
+
+
+class TextPreprocessor:
+    def __init__(self, tokenizer, max_length, name):
+        """
+        Initializes the text preprocessor with a tokenizer and maximum sequence length.
+
+        Args:
+            tokenizer: The tokenizer used for tokenizing input and target text.
+            max_length: The maximum length for tokenized sequences (inputs and targets).
+            name: "mt5" or "mbart50"
+        """
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        self.name = name
+
+    def preprocess_function(self, examples):
+        """
+        Tokenizes and formats a batch of examples for sequence-to-sequence training.
+
+        Args:
+            examples: A dictionary with "en" (English source text) and "vi" (Vietnamese target text) keys.
+
+        Returns:
+            A dictionary containing tokenized inputs and labels with necessary padding/truncation.
+        """
+        # Get source and target text
+        if self.name == "mbart50":
+            inputs = examples["en"]
+        else:
+            PREFIX = cfg[self.name]["args"]["prefix"]
+            inputs = [PREFIX + example for example in examples["en"]]
+        targets = examples["vi"]
+
+        # Tokenize both inputs and targets with padding and truncation
+        model_inputs = self.tokenizer(
+            inputs,
+            text_target=targets,
+            max_length=self.max_length,
+            truncation=True,
+            padding="max_length",
+        )
+
+        # Replace padding token ids in labels with -100 to ignore them in loss computation
+        model_inputs["labels"] = [
+            [(t if t != self.tokenizer.pad_token_id else -100) for t in seq]
+            for seq in model_inputs["labels"]
+        ]
+
+        # Preserve original texts for reference or debugging
+        if self.name == "mbart50":
+            model_inputs["en"] = examples["en"]
+        else:
+            PREFIX = cfg[self.name]["args"]["prefix"]
+            model_inputs["en"] = [PREFIX + example for example in examples["en"]]
+        model_inputs["vi"] = examples["vi"]
+
+        return model_inputs
+
+    def preprocess_dataset(self, dataset):
+        """
+        Applies preprocessing to the entire dataset using the `preprocess_function`.
+
+        Args:
+            dataset: A Hugging Face Dataset object containing examples with "en" and "vi" keys.
+
+        Returns:
+            A tokenized and formatted dataset ready for training.
+        """
+        return dataset.map(
+            self.preprocess_function, batched=True, remove_columns=dataset.column_names
+        )
