@@ -105,7 +105,7 @@ def main():
     train_dataset, val_dataset, test_dataset = load_datasets()
 
     # Preprocess datasets
-    preprocessor = TextPreprocessor(tokenizer, MAX_LEN)
+    preprocessor = TextPreprocessor(tokenizer, MAX_LEN, name="mbart50")
     tokenized_train_dataset = preprocessor.preprocess_dataset(train_dataset)
     tokenized_eval_dataset = preprocessor.preprocess_dataset(val_dataset)
 
