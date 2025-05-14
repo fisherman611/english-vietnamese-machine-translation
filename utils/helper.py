@@ -5,6 +5,11 @@ import spacy
 import string
 from unidecode import unidecode
 
+import json
+
+with open("config.json", "r") as json_file:
+    cfg = json.load(json_file)
+
 # Load spaCy's English model.
 nlp = spacy.load("en_core_web_sm")
 
@@ -130,16 +135,18 @@ def vietnamese_sentence_processing(sentence: str, max_length=50, filtering=True)
 
 
 class TextPreprocessor:
-    def __init__(self, tokenizer, max_length):
+    def __init__(self, tokenizer, max_length, name):
         """
         Initializes the text preprocessor with a tokenizer and maximum sequence length.
 
         Args:
             tokenizer: The tokenizer used for tokenizing input and target text.
             max_length: The maximum length for tokenized sequences (inputs and targets).
+            name: "mt5" or "mbart50"
         """
         self.tokenizer = tokenizer
         self.max_length = max_length
+        self.name = name
 
     def preprocess_function(self, examples):
         """
@@ -152,7 +159,11 @@ class TextPreprocessor:
             A dictionary containing tokenized inputs and labels with necessary padding/truncation.
         """
         # Get source and target text
-        inputs = examples["en"]
+        if self.name == "mbart50":
+            inputs = examples["en"]
+        else:
+            PREFIX = cfg[self.name]["args"]["prefix"]
+            inputs = [PREFIX + example for example in examples["en"]]
         targets = examples["vi"]
 
         # Tokenize both inputs and targets with padding and truncation
@@ -171,7 +182,11 @@ class TextPreprocessor:
         ]
 
         # Preserve original texts for reference or debugging
-        model_inputs["en"] = examples["en"]
+        if self.name == "mbart50":
+            model_inputs["en"] = examples["en"]
+        else:
+            PREFIX = cfg[self.name]["args"]["prefix"]
+            model_inputs["en"] = [PREFIX + example for example in examples["en"]]
         model_inputs["vi"] = examples["vi"]
 
         return model_inputs
