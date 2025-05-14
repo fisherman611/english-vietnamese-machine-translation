@@ -39,6 +39,7 @@
             "max_len": 128,
             "id": null,
             "initial_learning_rate": 5e-5,
+            "prefix": "translate English to Vietnamese: ",
             "model_name": "google/mt5-base",
             "wandb_project": "mt5-lora-en-vi",
             "output_dir": "checkpoints"
