@@ -21,22 +21,25 @@ with open("config.json", "r") as json_file:
 
 
 class SaveBestModelCallback(TrainerCallback):
+
     def __init__(self, output_dir, name="mbart50"):
         """
-        Callback to save the model with the best composite score.
+        Callback to save the model with the best composite score, overriding previous best.
 
         Args:
             output_dir: Directory to save checkpoints
-            prefix: Prefix for checkpoint directory names
-            metric_weights: Dictionary of metric names and their weights
+            name: Name for checkpoint directory
         """
         self.output_dir = output_dir
         self.name = name
         self.prefix = f"best_{self.name}"
         self.best_composite_score = float("-inf")
-        self.best_checkpoint_dir = None
+        self.checkpoint_dir = os.path.join(self.output_dir, self.prefix)
         self.metric_weights = cfg["metric_weights"]
-        self.best_metrics = {metric: float("-inf") for metric in self.metric_weights}
+        self.best_metrics = {
+            metric: float("-inf")
+            for metric in self.metric_weights
+        }
 
     def calculate_composite_score(self, metrics):
         """Calculate a weighted composite score from multiple metrics."""
@@ -49,39 +52,37 @@ class SaveBestModelCallback(TrainerCallback):
     def on_evaluate(self, args, state, control, metrics, **kwargs):
         current_composite_score = self.calculate_composite_score(metrics)
         if current_composite_score > self.best_composite_score:
-            print(
-                f"New best composite score: {current_composite_score:.4f} "
-                f"(previous: {self.best_composite_score:.4f})"
-            )
+            print(f"New best composite score: {current_composite_score:.4f} "
+                  f"(previous: {self.best_composite_score:.4f})")
             self.best_composite_score = current_composite_score
             for metric in self.metric_weights:
                 metric_value = metrics.get(f"eval_{metric}", 0.0)
                 if metric_value > self.best_metrics[metric]:
                     self.best_metrics[metric] = metric_value
-            new_checkpoint_dir = os.path.join(
-                self.output_dir,
-                f"{self.prefix}_composite_{current_composite_score:.4f}",
-            )
-            self.trainer.save_model(new_checkpoint_dir)
-            print(f"Saved best model to: {new_checkpoint_dir}")
+            # Remove existing checkpoint if it exists
+            if os.path.exists(self.checkpoint_dir):
+                shutil.rmtree(self.checkpoint_dir, ignore_errors=True)
+            # Save new best model to same checkpoint directory
+            self.trainer.save_model(self.checkpoint_dir)
+            print(f"Saved best model to: {self.checkpoint_dir}")
             print("Current metric values:")
             for metric, value in self.best_metrics.items():
                 print(f"  {metric}: {value:.4f}")
-            if self.best_checkpoint_dir and os.path.exists(self.best_checkpoint_dir):
-                shutil.rmtree(self.best_checkpoint_dir, ignore_errors=True)
-            self.best_checkpoint_dir = new_checkpoint_dir
         control.should_save = False
 
     def on_train_end(self, args, state, control, **kwargs):
-        if self.best_checkpoint_dir:
-            print(f"Training complete. Best model saved at: {self.best_checkpoint_dir}")
+        if os.path.exists(self.checkpoint_dir):
+            print(
+                f"Training complete. Best model saved at: {self.checkpoint_dir}"
+            )
             print(f"Best composite score: {self.best_composite_score:.4f}")
             print("Best metric values:")
             for metric, value in self.best_metrics.items():
                 print(f"  {metric}: {value:.4f}")
 
 
-def compute_metrics(eval_preds, tokenizer, tokenized_eval_dataset, val_dataset):
+def compute_metrics(eval_preds, tokenizer, tokenized_eval_dataset,
+                    val_dataset):
     """
     Compute evaluation metrics for translation.
 
@@ -105,7 +106,8 @@ def compute_metrics(eval_preds, tokenizer, tokenized_eval_dataset, val_dataset):
 
     decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
     labels_no_ignore = np.where(labels != -100, labels, tokenizer.pad_token_id)
-    decoded_labels = tokenizer.batch_decode(labels_no_ignore, skip_special_tokens=True)
+    decoded_labels = tokenizer.batch_decode(labels_no_ignore,
+                                            skip_special_tokens=True)
     source_texts = val_dataset["en"]
 
     bleu = bleu_metric.compute(
@@ -118,9 +120,9 @@ def compute_metrics(eval_preds, tokenizer, tokenized_eval_dataset, val_dataset):
         rouge_types=["rouge1", "rouge2", "rougeL"],
         use_stemmer=True,
     )
-    meteor = meteor_metric.compute(
-        predictions=decoded_preds, references=[[label] for label in decoded_labels]
-    )
+    meteor = meteor_metric.compute(predictions=decoded_preds,
+                                   references=[[label]
+                                               for label in decoded_labels])
     bert_score = bert_metric.compute(
         predictions=decoded_preds,
         references=[[label] for label in decoded_labels],
@@ -203,8 +205,7 @@ def train_model(
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=lambda eval_preds: compute_metrics(
-            eval_preds, tokenizer, eval_dataset, val_dataset
-        ),
+            eval_preds, tokenizer, eval_dataset, val_dataset),
         callbacks=[save_callback],
     )
 

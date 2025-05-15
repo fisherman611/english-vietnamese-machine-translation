@@ -4,6 +4,8 @@ from bs4 import BeautifulSoup  # For HTML cleaning
 import spacy
 import string
 from unidecode import unidecode
+from typing import List, Tuple, Any
+from tqdm.auto import tqdm
 
 import json
 
@@ -17,35 +19,31 @@ nlp = spacy.load("en_core_web_sm")
 MULTI_SPACE_PATTERN = re.compile(r"\s+")
 URL_PATTERN = re.compile(r"https?://\S+|www\.\S+")
 
-vowels_lower = (
-    "aáàảãạ"
-    "ăắằẳẵặ"
-    "âấầẩẫậ"
-    "eéèẻẽẹ"
-    "êếềểễệ"
-    "iíìỉĩị"
-    "oóòỏõọ"
-    "ôốồổỗộ"
-    "ơớờởỡợ"
-    "uúùủũụ"
-    "ưứừửữự"
-    "yýỳỷỹỵ"
-)
+vowels_lower = ("aáàảãạ"
+                "ăắằẳẵặ"
+                "âấầẩẫậ"
+                "eéèẻẽẹ"
+                "êếềểễệ"
+                "iíìỉĩị"
+                "oóòỏõọ"
+                "ôốồổỗộ"
+                "ơớờởỡợ"
+                "uúùủũụ"
+                "ưứừửữự"
+                "yýỳỷỹỵ")
 
-vowels_upper = (
-    "AÁÀẢÃẠ"
-    "ĂẮẰẲẴẶ"
-    "ÂẤẦẨẪẬ"
-    "EÉÈẺẼẸ"
-    "ÊẾỀỂỄỆ"
-    "IÍÌỈĨỊ"
-    "OÓÒỎÕỌ"
-    "ÔỐỒỔỖỘ"
-    "ƠỚỜỞỠỢ"
-    "UÚÙỦŨỤ"
-    "ƯỨỪỬỮỰ"
-    "YÝỲỶỸỴ"
-)
+vowels_upper = ("AÁÀẢÃẠ"
+                "ĂẮẰẲẴẶ"
+                "ÂẤẦẨẪẬ"
+                "EÉÈẺẼẸ"
+                "ÊẾỀỂỄỆ"
+                "IÍÌỈĨỊ"
+                "OÓÒỎÕỌ"
+                "ÔỐỒỔỖỘ"
+                "ƠỚỜỞỠỢ"
+                "UÚÙỦŨỤ"
+                "ƯỨỪỬỮỰ"
+                "YÝỲỶỸỴ")
 
 alphabet_lower = "abcdefghijklmnopqrstuvwxyz"
 alphabet_upper = alphabet_lower.upper()
@@ -59,18 +57,9 @@ digits = "0123456789"
 # Combine all allowed characters into one string
 allowed_pattern = "".join(
     sorted(
-        set(
-            vowels_lower
-            + vowels_upper
-            + alphabet_lower
-            + alphabet_upper
-            + consonants_lower
-            + consonants_upper
-            + allowed_punctuations
-            + digits
-        )
-    )
-)
+        set(vowels_lower + vowels_upper + alphabet_lower + alphabet_upper +
+            consonants_lower + consonants_upper + allowed_punctuations +
+            digits)))
 
 # Escape the allowed characters so that regex meta-characters are taken literally.
 escaped_allowed = re.escape(allowed_pattern)
@@ -111,30 +100,37 @@ def general_processing(sentence: str, max_length=50, filtering=True) -> str:
     return sentence
 
 
-def english_sentence_processing(sentence: str, max_length=50, filtering=True) -> str:
+def english_sentence_processing(sentence: str,
+                                max_length=50,
+                                filtering=True) -> str:
     """
     Process an English sentence by converting non-ASCII characters to ASCII and applying general cleaning.
     """
 
     sentence = fix_non_ascii_characters(sentence)
-    sentence = general_processing(sentence, max_length=max_length, filtering=filtering)
+    sentence = general_processing(sentence,
+                                  max_length=max_length,
+                                  filtering=filtering)
     return sentence
 
 
-def vietnamese_sentence_processing(sentence: str, max_length=50, filtering=True) -> str:
+def vietnamese_sentence_processing(sentence: str,
+                                   max_length=50,
+                                   filtering=True) -> str:
     """
     Process a Vietnamese sentence if it contains only allowed characters and applying general cleaning.
     """
 
     if validate_vietnamese_sentence(sentence):
-        sentence = general_processing(
-            sentence, max_length=max_length, filtering=filtering
-        )
+        sentence = general_processing(sentence,
+                                      max_length=max_length,
+                                      filtering=filtering)
         return sentence
     return None
 
 
 class TextPreprocessor:
+
     def __init__(self, tokenizer, max_length, name):
         """
         Initializes the text preprocessor with a tokenizer and maximum sequence length.
@@ -176,17 +172,18 @@ class TextPreprocessor:
         )
 
         # Replace padding token ids in labels with -100 to ignore them in loss computation
-        model_inputs["labels"] = [
-            [(t if t != self.tokenizer.pad_token_id else -100) for t in seq]
-            for seq in model_inputs["labels"]
-        ]
+        model_inputs["labels"] = [[
+            (t if t != self.tokenizer.pad_token_id else -100) for t in seq
+        ] for seq in model_inputs["labels"]]
 
         # Preserve original texts for reference or debugging
         if self.name == "mbart50":
             model_inputs["en"] = examples["en"]
         else:
             PREFIX = cfg[self.name]["args"]["prefix"]
-            model_inputs["en"] = [PREFIX + example for example in examples["en"]]
+            model_inputs["en"] = [
+                PREFIX + example for example in examples["en"]
+            ]
         model_inputs["vi"] = examples["vi"]
 
         return model_inputs
@@ -201,6 +198,31 @@ class TextPreprocessor:
         Returns:
             A tokenized and formatted dataset ready for training.
         """
-        return dataset.map(
-            self.preprocess_function, batched=True, remove_columns=dataset.column_names
-        )
+        return dataset.map(self.preprocess_function,
+                           batched=True,
+                           remove_columns=dataset.column_names)
+
+
+def clean_sentence(sentence: str) -> str:
+    """Remove punctuation and convert to lowercase."""
+    # Remove punctuation
+    translator = str.maketrans('', '', string.punctuation)
+    cleaned = sentence.translate(translator)
+    # Convert to lowercase
+    return cleaned.lower()
+
+
+def build_corpus(csv_file: str) -> List[Tuple[List[str], List[str]]]:
+    """Read CSV, clean sentences, and create corpus."""
+    df = pd.read_csv(csv_file)
+    corpus = []
+    for _, row in tqdm(df.iterrows()):
+        # Clean and tokenize
+        eng_cleaned = clean_sentence(row['en'].strip())
+        vi_cleaned = clean_sentence(row['vi'].strip())
+        eng_words = eng_cleaned.split()
+        vi_words = vi_cleaned.split()
+        if eng_words and vi_words:  # Skip empty sentences
+            corpus.append((eng_words, vi_words))
+
+    return corpus
