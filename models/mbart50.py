@@ -4,7 +4,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import torch
-from transformers import MBart50TokenizerFast, MBartForConditionalGeneration  # type: ignore
+from transformers import MBart50Tokenizer, MBartForConditionalGeneration  # type: ignore
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, TaskType
 from dotenv import load_dotenv
@@ -52,7 +52,7 @@ class MBart50Finetuner:
 
     def load_model_and_tokenizer(self):
         """Load the mBART model and tokenizer."""
-        self.tokenizer = MBart50TokenizerFast.from_pretrained(self.model_name)
+        self.tokenizer = MBart50Tokenizer.from_pretrained(self.model_name)
         self.model = MBartForConditionalGeneration.from_pretrained(self.model_name)
         self.tokenizer.src_lang = self.src_lang
         self.tokenizer.tgt_lang = self.tgt_lang
