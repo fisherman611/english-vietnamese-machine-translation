@@ -4,7 +4,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import torch
-from transformers import MT5TokenizerFast, MT5ForConditionalGeneration
+from transformers import MT5TokenizerFast, MT5ForConditionalGeneration  # type: ignore
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, TaskType
 from dotenv import load_dotenv
@@ -15,17 +15,18 @@ from utils.trainer import train_model
 
 load_dotenv()
 
+
 class MT5Finetuner:
     """Class to handle fine-tuning of mT5 model for translation tasks."""
-    
+
     def __init__(self, config_path="config.json"):
         """Initialize with configuration file."""
         with open(config_path, "r") as json_file:
             cfg = json.load(json_file)
-            
+
         self.args = cfg["mt5"]["args"]
         self.lora_config = cfg["mt5"]["lora_config"]
-        
+
         # Constants
         self.max_len = self.args["max_len"]
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -34,8 +35,8 @@ class MT5Finetuner:
         self.model_name = self.args["model_name"]
         self.wandb_project = self.args["wandb_project"]
         self.output_dir = self.args["output_dir"]
-        self.name = 'mt5'
-        
+        self.name = "mt5"
+
         self.model = None
         self.tokenizer = None
         self.train_dataset = None
@@ -70,9 +71,13 @@ class MT5Finetuner:
                 "csv", data_files=data_files, split=f"train{training_parts[self.id]}"
             )
             self.test_dataset = load_dataset("csv", data_files=data_files, split="test")
-            self.val_dataset = load_dataset("csv", data_files=data_files, split="val[:20000]")
+            self.val_dataset = load_dataset(
+                "csv", data_files=data_files, split="val[:20000]"
+            )
         else:
-            self.train_dataset = load_dataset("csv", data_files=data_files, split="train")
+            self.train_dataset = load_dataset(
+                "csv", data_files=data_files, split="train"
+            )
             self.test_dataset = load_dataset("csv", data_files=data_files, split="test")
             self.val_dataset = load_dataset("csv", data_files=data_files, split="val")
 
@@ -85,21 +90,21 @@ class MT5Finetuner:
             target_modules=self.lora_config["target_modules"],
             lora_dropout=self.lora_config["lora_dropout"],
         )
-        self.model = get_peft_model(self.model, lora_config)
+        self.model = get_peft_model(self.model, lora_config)  # type: ignore
 
     def finetune(self):
         """Orchestrate the fine-tuning process."""
         self.setup_wandb()
         self.load_model_and_tokenizer()
         self.load_datasets()
-        
+
         preprocessor = TextPreprocessor(self.tokenizer, self.max_len, name="mt5")
         tokenized_train_dataset = preprocessor.preprocess_dataset(self.train_dataset)
         tokenized_eval_dataset = preprocessor.preprocess_dataset(self.val_dataset)
-        
+
         self.configure_lora()
-        self.model.print_trainable_parameters()
-        
+        self.model.print_trainable_parameters()  # type: ignore
+
         train_model(
             model=self.model,
             tokenizer=self.tokenizer,
@@ -108,8 +113,9 @@ class MT5Finetuner:
             output_dir=self.output_dir,
             initial_learning_rate=self.initial_learning_rate,
             name=self.name,
-            val_dataset=self.val_dataset
+            val_dataset=self.val_dataset,
         )
+
 
 if __name__ == "__main__":
     finetuner = MT5Finetuner()

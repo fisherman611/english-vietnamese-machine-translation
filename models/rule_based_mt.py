@@ -51,7 +51,7 @@ class TransferBasedMT:
         sentence = sentence.lower().strip()
         
         # Expand contractions, e.g. don't -> do not 
-        sentence = contractions.fix(sentence) 
+        sentence = contractions.fix(sentence)   #type: ignore
         
         # Tokenize and regroup tokens
         sentence = " ".join(word_tokenize(sentence))
@@ -178,7 +178,7 @@ class TransferBasedMT:
             
             if wh_word_idx is not None:
                 # For "how many/much" questions, keep the order similar to English
-                wh_word_text = " ".join(tree[wh_word_idx].leaves()).lower()
+                wh_word_text = " ".join(tree[wh_word_idx].leaves()).lower()    #type: ignore
                 if wh_word_text in ["how many", "how much"]:
                     return Tree("WhQ", children)
                 
