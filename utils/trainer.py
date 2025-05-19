@@ -6,12 +6,7 @@ import shutil
 import numpy as np
 import torch
 import evaluate
-from transformers import (
-    Seq2SeqTrainer,
-    Seq2SeqTrainingArguments,
-    DataCollatorForSeq2Seq,
-    TrainerCallback,
-)
+from transformers import Seq2SeqTrainer, Seq2SeqTrainingArguments, DataCollatorForSeq2Seq, TrainerCallback  # type: ignore
 from utils.helper import TextPreprocessor
 
 import json
@@ -21,7 +16,6 @@ with open("config.json", "r") as json_file:
 
 
 class SaveBestModelCallback(TrainerCallback):
-
     def __init__(self, output_dir, name="mbart50"):
         """
         Callback to save the model with the best composite score, overriding previous best.
@@ -36,10 +30,7 @@ class SaveBestModelCallback(TrainerCallback):
         self.best_composite_score = float("-inf")
         self.checkpoint_dir = os.path.join(self.output_dir, self.prefix)
         self.metric_weights = cfg["metric_weights"]
-        self.best_metrics = {
-            metric: float("-inf")
-            for metric in self.metric_weights
-        }
+        self.best_metrics = {metric: float("-inf") for metric in self.metric_weights}
 
     def calculate_composite_score(self, metrics):
         """Calculate a weighted composite score from multiple metrics."""
@@ -49,11 +40,13 @@ class SaveBestModelCallback(TrainerCallback):
             composite_score += metric_value * weight
         return composite_score
 
-    def on_evaluate(self, args, state, control, metrics, **kwargs):
+    def on_evaluate(self, args, state, control, metrics, **kwargs):  # type: ignore
         current_composite_score = self.calculate_composite_score(metrics)
         if current_composite_score > self.best_composite_score:
-            print(f"New best composite score: {current_composite_score:.4f} "
-                  f"(previous: {self.best_composite_score:.4f})")
+            print(
+                f"New best composite score: {current_composite_score:.4f} "
+                f"(previous: {self.best_composite_score:.4f})"
+            )
             self.best_composite_score = current_composite_score
             for metric in self.metric_weights:
                 metric_value = metrics.get(f"eval_{metric}", 0.0)
@@ -63,7 +56,7 @@ class SaveBestModelCallback(TrainerCallback):
             if os.path.exists(self.checkpoint_dir):
                 shutil.rmtree(self.checkpoint_dir, ignore_errors=True)
             # Save new best model to same checkpoint directory
-            self.trainer.save_model(self.checkpoint_dir)
+            self.trainer.save_model(self.checkpoint_dir)  # type: ignore
             print(f"Saved best model to: {self.checkpoint_dir}")
             print("Current metric values:")
             for metric, value in self.best_metrics.items():
@@ -72,17 +65,14 @@ class SaveBestModelCallback(TrainerCallback):
 
     def on_train_end(self, args, state, control, **kwargs):
         if os.path.exists(self.checkpoint_dir):
-            print(
-                f"Training complete. Best model saved at: {self.checkpoint_dir}"
-            )
+            print(f"Training complete. Best model saved at: {self.checkpoint_dir}")
             print(f"Best composite score: {self.best_composite_score:.4f}")
             print("Best metric values:")
             for metric, value in self.best_metrics.items():
                 print(f"  {metric}: {value:.4f}")
 
 
-def compute_metrics(eval_preds, tokenizer, tokenized_eval_dataset,
-                    val_dataset):
+def compute_metrics(eval_preds, tokenizer, tokenized_eval_dataset, val_dataset):
     """
     Compute evaluation metrics for translation.
 
@@ -106,8 +96,7 @@ def compute_metrics(eval_preds, tokenizer, tokenized_eval_dataset,
 
     decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
     labels_no_ignore = np.where(labels != -100, labels, tokenizer.pad_token_id)
-    decoded_labels = tokenizer.batch_decode(labels_no_ignore,
-                                            skip_special_tokens=True)
+    decoded_labels = tokenizer.batch_decode(labels_no_ignore, skip_special_tokens=True)
     source_texts = val_dataset["en"]
 
     bleu = bleu_metric.compute(
@@ -120,9 +109,9 @@ def compute_metrics(eval_preds, tokenizer, tokenized_eval_dataset,
         rouge_types=["rouge1", "rouge2", "rougeL"],
         use_stemmer=True,
     )
-    meteor = meteor_metric.compute(predictions=decoded_preds,
-                                   references=[[label]
-                                               for label in decoded_labels])
+    meteor = meteor_metric.compute(
+        predictions=decoded_preds, references=[[label] for label in decoded_labels]
+    )
     bert_score = bert_metric.compute(
         predictions=decoded_preds,
         references=[[label] for label in decoded_labels],
@@ -135,13 +124,13 @@ def compute_metrics(eval_preds, tokenizer, tokenized_eval_dataset,
         sources=source_texts,
     )
     return {
-        "bleu": bleu["score"] / 100,
-        "rouge1": rouge_scores["rouge1"],
-        "rouge2": rouge_scores["rouge2"],
-        "rougeL": rouge_scores["rougeL"],
-        "meteor": meteor["meteor"],
-        "bertscore": sum(bert_score["f1"]) / len(bert_score["f1"]),
-        "comet": sum(comet["scores"]) / len(comet["scores"]),
+        "bleu": bleu["score"] / 100,  # type: ignore
+        "rouge1": rouge_scores["rouge1"],  # type: ignore
+        "rouge2": rouge_scores["rouge2"],  # type: ignore
+        "rougeL": rouge_scores["rougeL"],  # type: ignore
+        "meteor": meteor["meteor"],  # type: ignore
+        "bertscore": sum(bert_score["f1"]) / len(bert_score["f1"]),  # type: ignore
+        "comet": sum(comet["scores"]) / len(comet["scores"]),  # type: ignore
     }
 
 
@@ -171,7 +160,7 @@ def train_model(
     # Data collator
     data_collator = DataCollatorForSeq2Seq(tokenizer, model=model)
 
-    arguments = cfg[name]['args']
+    arguments = cfg[name]["args"]
     # Training arguments
     training_args = Seq2SeqTrainingArguments(
         output_dir=output_dir,
@@ -183,8 +172,8 @@ def train_model(
         per_device_train_batch_size=arguments["per_device_train_batch_size"],
         num_train_epochs=arguments["num_train_epochs"],
         weight_decay=arguments["weight_decay"],
-        fp16=True if name == 'mbart50' else False,
-        bf16=True if name == 'mt5' else False,
+        fp16=True if name == "mbart50" else False,
+        bf16=True if name == "mt5" else False,
         eval_strategy="epoch",
         per_device_eval_batch_size=arguments["per_device_eval_batch_size"],
         predict_with_generate=True,
@@ -202,16 +191,17 @@ def train_model(
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        tokenizer=tokenizer,
+        tokenizer=tokenizer,  # type: ignore
         data_collator=data_collator,
         compute_metrics=lambda eval_preds: compute_metrics(
-            eval_preds, tokenizer, eval_dataset, val_dataset),
+            eval_preds, tokenizer, eval_dataset, val_dataset
+        ),
         callbacks=[save_callback],
     )
 
     for callback in trainer.callback_handler.callbacks:
         if isinstance(callback, SaveBestModelCallback):
-            callback.trainer = trainer
+            callback.trainer = trainer  # type: ignore
 
     # Start training
     trainer.train()
