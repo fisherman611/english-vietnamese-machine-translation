@@ -91,7 +91,7 @@ def general_processing(sentence: str, max_length=50, filtering=True) -> str:
     """
     if filtering == True:
         if len(sentence.split()) > max_length:
-            return None
+            return None             #type: ignore
 
     sentence = MULTI_SPACE_PATTERN.sub(" ", sentence).strip()
     sentence = BeautifulSoup(sentence, "html.parser").get_text(separator=" ")
@@ -126,7 +126,7 @@ def vietnamese_sentence_processing(sentence: str,
                                       max_length=max_length,
                                       filtering=filtering)
         return sentence
-    return None
+    return None             #type: ignore
 
 
 class TextPreprocessor:
