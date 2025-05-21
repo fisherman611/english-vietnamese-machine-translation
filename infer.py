@@ -2,25 +2,26 @@ import os
 import sys
 import json
 import argparse
-from typing import Tuple, Union
+from typing import Tuple, Union, Dict, Any
+from pathlib import Path
 
 import torch
 from transformers import (
-    MBart50Tokenizer,                          #type: ignore
-    MBartForConditionalGeneration,             #type: ignore
-    MT5ForConditionalGeneration,               #type: ignore
-    MT5TokenizerFast,                          #type: ignore
+    MBart50Tokenizer,
+    MBartForConditionalGeneration,
+    MT5ForConditionalGeneration,
+    MT5TokenizerFast,
 )
 from peft import PeftModel, PeftConfig
 
 # Add parent directory to sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from models.rule_based_mt import TransferBasedMT
 
 # Device configuration
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Load configuration
+# Load configuration once
 with open("config.json", "r") as json_file:
     CONFIG = json.load(json_file)
 
@@ -40,10 +41,10 @@ def parse_arguments() -> argparse.Namespace:
 
 
 class ModelLoader:
-    """Handles loading of different translation models."""
+    """Handles loading of translation models."""
 
     @staticmethod
-    def load_smt():
+    def load_smt() -> None:
         """Load Statistical Machine Translation model."""
         raise NotImplementedError("SMT model loading not implemented")
 
@@ -53,13 +54,11 @@ class ModelLoader:
         try:
             model_config = CONFIG["mbart50"]["paths"]
             model = MBartForConditionalGeneration.from_pretrained(model_config["base_model_name"])
-            peft_config = PeftConfig.from_pretrained(model_config["checkpoint_path"])
             model = PeftModel.from_pretrained(model, model_config["checkpoint_path"])
             tokenizer = MBart50Tokenizer.from_pretrained(model_config["checkpoint_path"])
-            
             model.eval()
             print("MBart50 loaded successfully!")
-            return model.to(DEVICE), tokenizer                            #type: ignore
+            return model.to(DEVICE), tokenizer
         except Exception as e:
             raise RuntimeError(f"Failed to load MBart50 model: {str(e)}")
 
@@ -69,13 +68,11 @@ class ModelLoader:
         try:
             model_config = CONFIG["mt5"]["paths"]
             model = MT5ForConditionalGeneration.from_pretrained(model_config["base_model_name"])
-            peft_config = PeftConfig.from_pretrained(model_config["checkpoint_path"])
             model = PeftModel.from_pretrained(model, model_config["checkpoint_path"])
             tokenizer = MT5TokenizerFast.from_pretrained(model_config["checkpoint_path"])
-            
             model.eval()
             print("MT5 loaded successfully!")
-            return model.to(DEVICE), tokenizer                           #type: ignore
+            return model.to(DEVICE), tokenizer
         except Exception as e:
             raise RuntimeError(f"Failed to load MT5 model: {str(e)}")
 
@@ -87,8 +84,7 @@ class Translator:
     def translate_rbmt(text: str) -> str:
         """Translate using Rule-Based Machine Translation."""
         try:
-            translator = TransferBasedMT()
-            return translator.translate(text)
+            return TransferBasedMT().translate(text)
         except Exception as e:
             raise RuntimeError(f"RBMT translation failed: {str(e)}")
 
@@ -98,42 +94,46 @@ class Translator:
         raise NotImplementedError("SMT translation not implemented")
 
     @staticmethod
-    def translate_mbart50(text: str, model: MBartForConditionalGeneration, tokenizer: MBart50Tokenizer) -> str:
-        """Translate using MBart50 model."""
+    def translate_mbart50(
+        text: str, model: MBartForConditionalGeneration, tokenizer: MBart50Tokenizer
+    ) -> str:
+        """Translate using MBart50 model with batch processing."""
         try:
             model_config = CONFIG["mbart50"]["args"]
             tokenizer.src_lang = model_config["src_lang"]
-            inputs = tokenizer(text, return_tensors="pt", padding=True)
+            inputs = tokenizer([text], return_tensors="pt", padding=True)
             inputs = {key: value.to(DEVICE) for key, value in inputs.items()}
 
-            forced_bos_token_id = tokenizer.lang_code_to_id[model_config["tgt_lang"]]
-            translated_tokens = model.generate(
-                input_ids=inputs["input_ids"],
-                attention_mask=inputs["attention_mask"],
-                forced_bos_token_id=forced_bos_token_id,
-                max_length=128,
-                num_beams=5,
-            )
-            return tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
+            with torch.no_grad():  # Disable gradient computation for inference
+                translated_tokens = model.generate(
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs["attention_mask"],
+                    forced_bos_token_id=tokenizer.lang_code_to_id[model_config["tgt_lang"]],
+                    max_length=128,
+                    num_beams=5,
+                )
+            return tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[0]
         except Exception as e:
             raise RuntimeError(f"MBart50 translation failed: {str(e)}")
 
     @staticmethod
-    def translate_mt5(text: str, model: MT5ForConditionalGeneration, tokenizer: MT5TokenizerFast) -> str:
-        """Translate using MT5 model."""
+    def translate_mt5(
+        text: str, model: MT5ForConditionalGeneration, tokenizer: MT5TokenizerFast
+    ) -> str:
+        """Translate using MT5 model with batch processing."""
         try:
             prefix = CONFIG["mt5"]["args"]["prefix"]
-            text = prefix + text
-            inputs = tokenizer(text, return_tensors="pt", padding=True)
+            inputs = tokenizer([prefix + text], return_tensors="pt", padding=True)
             inputs = {key: value.to(DEVICE) for key, value in inputs.items()}
 
-            translated_tokens = model.generate(
-                input_ids=inputs["input_ids"],
-                attention_mask=inputs["attention_mask"],
-                max_length=128,
-                num_beams=5,
-            )
-            return tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
+            with torch.no_grad():  # Disable gradient computation for inference
+                translated_tokens = model.generate(
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs["attention_mask"],
+                    max_length=128,
+                    num_beams=5,
+                )
+            return tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[0]
         except Exception as e:
             raise RuntimeError(f"MT5 translation failed: {str(e)}")
 
