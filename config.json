@@ -26,6 +26,10 @@
                 "o_proj"
             ],
             "lora_dropout": 0.2
+        },
+        "paths": {
+            "checkpoint_path": "checkpoints/best_mbart50",
+            "base_model_name": "facebook/mbart-large-50-many-to-many-mmt"
         }
     },
     "mt5": {
@@ -54,6 +58,10 @@
                 "o"
             ],
             "lora_dropout": 0.2
+        },
+        "paths": {
+            "checkpoint_path": "checkpoints/best_mt5",
+            "base_model_name": "google/mt5-base"
         }
     },
     "metric_weights": {
