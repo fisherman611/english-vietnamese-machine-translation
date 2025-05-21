@@ -1,147 +1,164 @@
-import os 
-import sys 
+import os
+import sys
+import json
+import argparse
+from typing import Tuple, Union
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-import torch 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-from transformers import MBart50Tokenizer, MBartForConditionalGeneration, MT5ForConditionalGeneration, MT5TokenizerFast  #type: ignore
+import torch
+from transformers import (
+    MBart50Tokenizer,                          #type: ignore
+    MBartForConditionalGeneration,             #type: ignore
+    MT5ForConditionalGeneration,               #type: ignore
+    MT5TokenizerFast,                          #type: ignore
+)
 from peft import PeftModel, PeftConfig
+
+# Add parent directory to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from models.rule_based_mt import TransferBasedMT
 
-import json
+# Device configuration
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# Load configuration
 with open("config.json", "r") as json_file:
-    cfg = json.load(json_file)
- 
-import argparse
-
-parser = argparse.ArgumentParser(description="English-Vietnamese Machine Translation Inference")
-parser.add_argument('--model_type', type=str, choices=['rbmt', 'smt', 'mbart50', 'mt5'], required=True, help='Type of model to use for translation')
-parser.add_argument('--text', type=str, required=True, help='Text to translate')
-args = parser.parse_args()
+    CONFIG = json.load(json_file)
 
 
-"""FUNCTIONS FOR LOADING MODELS"""  
-def load_smt():
-    pass 
-
-
-def load_mbart50():
-    checkpoint_path = cfg[args.model_type]["paths"]["checkpoint_path"]
-    base_model_name = cfg[args.model_type]["paths"]["base_model_name"]
-    
-    model = MBartForConditionalGeneration.from_pretrained(base_model_name)
-    
-    peft_config = PeftConfig.from_pretrained(checkpoint_path)
-    model = PeftModel.from_pretrained(model, checkpoint_path)
-    
-    tokenizer = MBart50Tokenizer.from_pretrained(checkpoint_path)
-    
-    model.eval()
-    print("MBart50 loaded successfully!!!")
-    
-    return model, tokenizer
-
-
-def load_mt5():
-    checkpoint_path = cfg[args.model_type]["paths"]["checkpoint_path"]
-    base_model_name = cfg[args.model_type]["paths"]["base_model_name"]
-    
-    model = MT5ForConditionalGeneration.from_pretrained(base_model_name)
-    
-    peft_config = PeftConfig.from_pretrained(checkpoint_path)
-    model = PeftModel.from_pretrained(model, checkpoint_path)
-    
-    tokenizer = MT5TokenizerFast.from_pretrained(checkpoint_path)
-    
-    model.eval()
-    print("MT5 loaded successfully!!!")
-    
-    return model, tokenizer
-
-
-if args.model_type == 'smt':
-    model = load_smt()
-    
-    
-elif args.model_type == 'mbart50':
-    model, tokenizer = load_mbart50()
-    model.to(device)
-    
-    
-elif args.model_type == 'mt5':
-    model, tokenizer = load_mt5()
-    model.to(device)
-    
-
-"""FUNCTION FOR TRANSLATION"""
-
-def translate_with_rbmt(text: str) -> str:            #type: ignore 
-    translator = TransferBasedMT()
-    return translator.translate(text)
-
-
-def translate_with_smt(text: str) -> str:             #type: ignore
-    pass 
-
-
-def translate_with_mbart50(text: str) -> str:         #type: ignore
-    src_lang = cfg[args.model_type]["args"]["src_lang"]
-    tgt_lang = cfg[args.model_type]["args"]["tgt_lang"]
-    
-    # Set source language and tokenize
-    tokenizer.src_lang = src_lang 
-    inputs = tokenizer(text, return_tensor="pt", padding=True)
-    inputs = {key: value.to(device) for key, value in inputs.items()}
-    
-    # Generate translation
-    forced_bos_token_id = tokenizer.lang_code_to_id[tgt_lang]
-    translated_tokens = model.generate(                #type: ignore
-        input_ids=inputs["input_ids"],
-        attention_mask=inputs["attention_mask"],
-        forced_bos_token_id=forced_bos_token_id,
-        max_length=128,
-        num_beams=5
+def parse_arguments() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="English-Vietnamese Machine Translation Inference")
+    parser.add_argument(
+        "--model_type",
+        type=str,
+        choices=["rbmt", "smt", "mbart50", "mt5"],
+        required=True,
+        help="Type of model to use for translation",
     )
-    
-    translation = tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
-    return translation
-    
+    parser.add_argument("--text", type=str, required=True, help="Text to translate")
+    return parser.parse_args()
 
-def translate_with_mt5(text: str) -> str:             #type: ignore
-    prefix = cfg[args.model_type]["args"]["prefix"]
-    text = prefix + text
-    inputs = tokenizer(text, return_tensors="pt", padding=True)
-    inputs = {key: value.to(device) for key, value in inputs.items()}
-    
-    # Generate translation 
-    translated_tokens = model.generate(               #type: ignore
-        input_ids=inputs["input_ids"],
-        attention_mask=inputs["attention_mask"],
-        max_length=128,
-        num_beams=5
-    )
-    
-    translation = tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
-    return translation
-    
+
+class ModelLoader:
+    """Handles loading of different translation models."""
+
+    @staticmethod
+    def load_smt():
+        """Load Statistical Machine Translation model."""
+        raise NotImplementedError("SMT model loading not implemented")
+
+    @staticmethod
+    def load_mbart50() -> Tuple[MBartForConditionalGeneration, MBart50Tokenizer]:
+        """Load MBart50 model and tokenizer."""
+        try:
+            model_config = CONFIG["mbart50"]["paths"]
+            model = MBartForConditionalGeneration.from_pretrained(model_config["base_model_name"])
+            peft_config = PeftConfig.from_pretrained(model_config["checkpoint_path"])
+            model = PeftModel.from_pretrained(model, model_config["checkpoint_path"])
+            tokenizer = MBart50Tokenizer.from_pretrained(model_config["checkpoint_path"])
+            
+            model.eval()
+            print("MBart50 loaded successfully!")
+            return model.to(DEVICE), tokenizer                            #type: ignore
+        except Exception as e:
+            raise RuntimeError(f"Failed to load MBart50 model: {str(e)}")
+
+    @staticmethod
+    def load_mt5() -> Tuple[MT5ForConditionalGeneration, MT5TokenizerFast]:
+        """Load MT5 model and tokenizer."""
+        try:
+            model_config = CONFIG["mt5"]["paths"]
+            model = MT5ForConditionalGeneration.from_pretrained(model_config["base_model_name"])
+            peft_config = PeftConfig.from_pretrained(model_config["checkpoint_path"])
+            model = PeftModel.from_pretrained(model, model_config["checkpoint_path"])
+            tokenizer = MT5TokenizerFast.from_pretrained(model_config["checkpoint_path"])
+            
+            model.eval()
+            print("MT5 loaded successfully!")
+            return model.to(DEVICE), tokenizer                           #type: ignore
+        except Exception as e:
+            raise RuntimeError(f"Failed to load MT5 model: {str(e)}")
+
+
+class Translator:
+    """Handles translation using different models."""
+
+    @staticmethod
+    def translate_rbmt(text: str) -> str:
+        """Translate using Rule-Based Machine Translation."""
+        try:
+            translator = TransferBasedMT()
+            return translator.translate(text)
+        except Exception as e:
+            raise RuntimeError(f"RBMT translation failed: {str(e)}")
+
+    @staticmethod
+    def translate_smt(text: str) -> str:
+        """Translate using Statistical Machine Translation."""
+        raise NotImplementedError("SMT translation not implemented")
+
+    @staticmethod
+    def translate_mbart50(text: str, model: MBartForConditionalGeneration, tokenizer: MBart50Tokenizer) -> str:
+        """Translate using MBart50 model."""
+        try:
+            model_config = CONFIG["mbart50"]["args"]
+            tokenizer.src_lang = model_config["src_lang"]
+            inputs = tokenizer(text, return_tensors="pt", padding=True)
+            inputs = {key: value.to(DEVICE) for key, value in inputs.items()}
+
+            forced_bos_token_id = tokenizer.lang_code_to_id[model_config["tgt_lang"]]
+            translated_tokens = model.generate(
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs["attention_mask"],
+                forced_bos_token_id=forced_bos_token_id,
+                max_length=128,
+                num_beams=5,
+            )
+            return tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
+        except Exception as e:
+            raise RuntimeError(f"MBart50 translation failed: {str(e)}")
+
+    @staticmethod
+    def translate_mt5(text: str, model: MT5ForConditionalGeneration, tokenizer: MT5TokenizerFast) -> str:
+        """Translate using MT5 model."""
+        try:
+            prefix = CONFIG["mt5"]["args"]["prefix"]
+            text = prefix + text
+            inputs = tokenizer(text, return_tensors="pt", padding=True)
+            inputs = {key: value.to(DEVICE) for key, value in inputs.items()}
+
+            translated_tokens = model.generate(
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs["attention_mask"],
+                max_length=128,
+                num_beams=5,
+            )
+            return tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
+        except Exception as e:
+            raise RuntimeError(f"MT5 translation failed: {str(e)}")
+
+
+def main():
+    """Main function to run translation."""
+    args = parse_arguments()
+
+    try:
+        if args.model_type == "rbmt":
+            translation = Translator.translate_rbmt(args.text)
+        elif args.model_type == "smt":
+            translation = Translator.translate_smt(args.text)
+        elif args.model_type == "mbart50":
+            model, tokenizer = ModelLoader.load_mbart50()
+            translation = Translator.translate_mbart50(args.text, model, tokenizer)
+        else:  # mt5
+            model, tokenizer = ModelLoader.load_mt5()
+            translation = Translator.translate_mt5(args.text, model, tokenizer)
+        
+        print(f"Translation: {translation}")
+    except Exception as e:
+        print(f"Error: {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
 
 if __name__ == "__main__":
-    if args.model_type == 'rbmt':
-        translation = translate_with_rbmt(args.text)
-        print(f"Translation: {translation}")
-        
-    elif args.model_type == 'smt':
-        pass 
-    
-    elif args.model_type == 'mbart50':
-        translation = translate_with_mbart50(args.text)
-        print(f"Translation: {translation}")
-
-    else:
-        translation = translate_with_mt5(args.text)
-        print(f"Translation: {translation}")
-    
-    
+    main()
