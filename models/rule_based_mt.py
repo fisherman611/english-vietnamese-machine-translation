@@ -244,7 +244,7 @@ class TransferBasedMT:
             
         words = self._apply_agreement(tree, words)  # Handle agreement (e.g., plurals)
         result = " ".join(words)  # Join words into a string
-        result = self._post_process_vietnamese(result)  # Clean up output
+        
         return result
 
 
@@ -319,19 +319,14 @@ class TransferBasedMT:
 
     def _add_classifiers(self, np_tree, words):
         """Add Vietnamese classifiers based on nouns."""
-        noun_indices = [
-            i for i, child in enumerate(np_tree) if isinstance(child, Tree)
-            and child.label() in ["N", "NN", "NNS", "NNP", "NNPS"]
-        ]  # Find noun positions
-        for i in noun_indices:
-            if len(words) > i and not any(
-                    words[i].startswith(prefix)
-                    for prefix in ["một_vn", "những_vn", "các_vn"
-                                   ]):  # Check if classifier is needed
-                if words[i].endswith(
-                        "_vn"
-                ):  # Add default classifier for untranslated nouns
-                    words.insert(i, "cái_vn")
+        # noun_indices = [
+        #     i for i, child in enumerate(np_tree) if isinstance(child, Tree)
+        #     and child.label() in ["N", "NN", "NNS", "NNP", "NNPS"]
+        # ]  # Find noun positions
+        # for i in noun_indices:
+        #     if len(words) > i and not any(words[i].startswith(prefix) for prefix in ["một_vn", "những_vn", "các_vn"]):  # Check if classifier is needed
+        #         if words[i].endswith("_vn"):  # Add default classifier for untranslated nouns
+        #             words.insert(i, "cái_vn")
         return words
 
 
@@ -453,7 +448,8 @@ class TransferBasedMT:
         target_tree.pretty_print()  # Display Vietnamese parse tree
         
         # Step 4: Generate final translation
-        vietnamese_output = self.generate(target_tree)
+        raw_output = self.generate(target_tree)
+        vietnamese_output = self._post_process_vietnamese(raw_output)
         return vietnamese_output
 
 
