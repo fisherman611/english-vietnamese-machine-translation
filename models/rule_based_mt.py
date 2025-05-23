@@ -147,7 +147,7 @@ class TransferBasedMT:
             children = [self.transfer_grammar(child) for child in tree]
             child_labels = [child.label() if isinstance(child, Tree) else child for child in children]
             
-            if (len(children) >= 3 and 'Det' in child_labels and 'Adj' in child_labels and 'N' in child_labels): # Reorder Det Adj N -> Det N Adj
+            if (len(children) >= 3 and 'Det' in child_labels and 'AdjP' in child_labels and 'N' in child_labels): # Reorder Det Adj N -> Det N Adj
                 return Tree("NP", [children[0], children[2], children[1]])
             
             elif (len(children) >= 2 and 'PRPS' in child_labels and 'N' in child_labels):  # Reorder PRPS N -> N PRPS
@@ -162,6 +162,16 @@ class TransferBasedMT:
         elif tree.label() == "PP":
             children = [self.transfer_grammar(child) for child in tree]
             return Tree("PP", children)  # Default: preserve order
+        
+        # Adverbial Phrase: adjust word order 
+        elif tree.label() == 'AdvP':
+            children = [self.transfer_grammar(child) for child in tree]
+            return Tree("AdvP", children)  # Default: preserve order
+        
+        # Adjective Phrase: adjust word order 
+        elif tree.label() == 'AdjP':
+            children = [self.transfer_grammar(child) for child in tree]
+            return Tree("AdjP", children)  # Default: preserve order
         
         # Wh-Question: adjust word order 
         elif tree.label() == "WhQ":
