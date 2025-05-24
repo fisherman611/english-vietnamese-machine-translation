@@ -571,7 +571,7 @@ class SMT:
         
         if not os.path.exists(bilingual_path):
             bilingual_path = os.path.join("datatest", BILINGUAL_DATA_PATH)
-            vie_path = os.path.join("datatest", 'vie_lor.csv')
+            vie_path = os.path.join("datatest", VIE_DATA_PATH)
         print("=== Training Translation Model ===")
         aligned_sentences = self.tm.train_ibm_model_incremental(bilingual_path)
         phrase_table = self.tm.extract_phrases_memory_efficient(aligned_sentences)
