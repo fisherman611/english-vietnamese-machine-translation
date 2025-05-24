@@ -24,6 +24,8 @@ MIN_PHRASE_COUNT = 3  # Increased threshold to reduce phrase table size
 LIMIT_VOCAB = 10  # Limit vocabulary size to 10 words
 MODE_VISUALIZATION = True  # Enable visualization
 
+
+################################################## 1. Language Model ##################################################
 class LanguageModel:
     """Memory-optimized Language Model"""    
     def __init__(self, order=LM_ORDER, MODE_VISUALIZATION=MODE_VISUALIZATION):
@@ -509,6 +511,7 @@ class TranslationModel:
         
         print(f"Phrase table visualization saved to {output_dir}/phrase_table.png")
 
+############################################# 3. Decoder Algorithm #############################################
 
 class Decoder:
     """Memory-optimized decoder"""
@@ -558,6 +561,7 @@ class Hypothesis:
         self.score = score
         self.last_phrase_end = last_phrase_end
 
+################################################# 4. Combine all SMT System #############################################
 class SMT:
     """Memory-optimized SMT system"""
     def __init__(self):
@@ -760,3 +764,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
