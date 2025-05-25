@@ -42,7 +42,9 @@ def initialize_models(model_types: list[str] = ["mbart50", "mt5", "rbmt"]) -> No
                 MODELS["rbmt"] = (TransferBasedMT(), None)
                 logger.info("RBMT initialized")
             elif model_type == "smt":
-                logger.warning("SMT not implemented, skipping...")
+                logger.info("Initializing SMT...")
+                MODELS["smt"] = (ModelLoader.load_smt(), None)
+                logger.info("SMT initialized")
         except Exception as e:
             logger.error(f"Failed to initialize {model_type}: {str(e)}")
             MODELS[model_type] = (None, None)
@@ -64,7 +66,7 @@ def translate_text(model_type: str, input_text: str) -> str:
         if model_type == "rbmt":
             return Translator.translate_rbmt(input_text)
         elif model_type == "smt":
-            return Translator.translate_smt(input_text)
+            return Translator.translate_smt(input_text, model)
         elif model_type == "mbart50":
             return Translator.translate_mbart50(input_text, model, tokenizer)
         else:  # mt5
@@ -139,11 +141,6 @@ with gr.Blocks(theme="soft", title="English to Vietnamese Translator", css="""
             interactive=False
         )
         translate_button = gr.Button("Translate", elem_classes=["gr-button"])
-    
-    gr.Markdown(
-        "_Note_: SMT is not implemented. RBMT requires a working TransferBasedMT class.",
-        elem_classes=["markdown"]
-    )
 
     # Bind the translation function to the button
     translate_button.click(
