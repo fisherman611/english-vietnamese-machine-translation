@@ -33,7 +33,7 @@ with open("config.json", "r") as json_file:
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Evaluate English-Vietnamese Machine Translation Models")
-    parser.add_argument("--test_file", type=str, required=True, help="Path to test CSV file")
+    parser.add_argument("--test_file", type=str, default='data/test_cleaned_dataset.csv', help="Path to test CSV file")
     parser.add_argument("--output_dir", type=str, default="results", help="Directory to save results")
     return parser.parse_args()
 
@@ -250,8 +250,12 @@ class Evaluator:
                     sources.append(item["source"])
 
             elif model_type == "smt":
-                print("Skipping SMT evaluation (not implemented).")
-                return [], [], {}
+                for item in tqdm(test_data, desc="Translating with SMT"):
+                    smt = ModelLoader.load_smt()
+                    translation = Translator.translate_smt(item["source"], smt)
+                    hypotheses.append(translation)
+                    references.append(item["reference"])
+                    sources.append(item["source"])
 
             elif model_type == "mbart50":
                 model, tokenizer = ModelLoader.load_mbart50()
