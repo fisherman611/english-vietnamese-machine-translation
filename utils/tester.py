@@ -20,6 +20,7 @@ import evaluate
 # Add parent directory to sys.path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from models.rule_based_mt import TransferBasedMT
+from models.statistical_mt import SMTExtended, LanguageModel
 
 # Device configuration
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -32,7 +33,7 @@ with open("config.json", "r") as json_file:
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Evaluate English-Vietnamese Machine Translation Models")
-    parser.add_argument("--test_file", type=str, required=True, help="Path to test CSV file")
+    parser.add_argument("--test_file", type=str, default='data/test_cleaned_dataset.csv', help="Path to test CSV file")
     parser.add_argument("--output_dir", type=str, default="results", help="Directory to save results")
     return parser.parse_args()
 
@@ -41,13 +42,26 @@ class ModelLoader:
     """Handles loading of translation models."""
 
     @staticmethod
-    def load_smt():
+    def load_smt() -> None:
         """Load Statistical Machine Translation model."""
-        raise NotImplementedError("SMT model loading not implemented")
+        try:
+            smt = SMTExtended()
+            model_dir = "checkpoints"
+            if os.path.exists(model_dir) and os.path.isfile(os.path.join(model_dir, "phrase_table.pkl")):
+                print("Loading existing model...")
+                smt.load_model()
+            else:
+                print("Training new smt...")
+                stats = smt.train()
+                print(f"Training complete: {stats}")
+            print("SMT model loaded successfully!")
+            return smt
+        except Exception as e:
+            raise RuntimeError(f"Failed to load SMT model: {str(e)}")
 
     @staticmethod
     def load_mbart50() -> Tuple[MBartForConditionalGeneration, MBart50Tokenizer]:
-        """Load MBart50 model and tokenizer."""
+        """Load fine-tuned MBart50 model and tokenizer."""
         try:
             model_config = CONFIG["mbart50"]["paths"]
             model = MBartForConditionalGeneration.from_pretrained(model_config["base_model_name"])
@@ -55,14 +69,27 @@ class ModelLoader:
             model = PeftModel.from_pretrained(model, model_config["checkpoint_path"])
             tokenizer = MBart50Tokenizer.from_pretrained(model_config["checkpoint_path"])
             model.eval()
-            print("MBart50 loaded successfully!")
+            print("Fine-tuned MBart50 loaded successfully!")
             return model.to(DEVICE), tokenizer              #type: ignore
         except Exception as e:
-            raise RuntimeError(f"Failed to load MBart50 model: {str(e)}")
+            raise RuntimeError(f"Failed to load fine-tuned MBart50 model: {str(e)}")
+
+    @staticmethod
+    def load_original_mbart50() -> Tuple[MBartForConditionalGeneration, MBart50Tokenizer]:
+        """Load original MBart50 model and tokenizer."""
+        try:
+            model_name = "facebook/mbart-large-50-many-to-many-mmt"
+            model = MBartForConditionalGeneration.from_pretrained(model_name)
+            tokenizer = MBart50Tokenizer.from_pretrained(model_name)
+            model.eval()
+            print("Original MBart50 loaded successfully!")
+            return model.to(DEVICE), tokenizer              #type: ignore
+        except Exception as e:
+            raise RuntimeError(f"Failed to load original MBart50 model: {str(e)}")
 
     @staticmethod
     def load_mt5() -> Tuple[MT5ForConditionalGeneration, MT5TokenizerFast]:
-        """Load MT5 model and tokenizer."""
+        """Load fine-tuned MT5 model and tokenizer."""
         try:
             model_config = CONFIG["mt5"]["paths"]
             model = MT5ForConditionalGeneration.from_pretrained(model_config["base_model_name"])
@@ -70,10 +97,23 @@ class ModelLoader:
             model = PeftModel.from_pretrained(model, model_config["checkpoint_path"])
             tokenizer = MT5TokenizerFast.from_pretrained(model_config["checkpoint_path"])
             model.eval()
-            print("MT5 loaded successfully!")
+            print("Fine-tuned MT5 loaded successfully!")
             return model.to(DEVICE), tokenizer              #type: ignore
         except Exception as e:
-            raise RuntimeError(f"Failed to load MT5 model: {str(e)}")
+            raise RuntimeError(f"Failed to load fine-tuned MT5 model: {str(e)}")
+
+    @staticmethod
+    def load_original_mt5() -> Tuple[MT5ForConditionalGeneration, MT5TokenizerFast]:
+        """Load original MT5 model and tokenizer."""
+        try:
+            model_name = "google/mt5-base"
+            model = MT5ForConditionalGeneration.from_pretrained(model_name)
+            tokenizer = MT5TokenizerFast.from_pretrained(model_name)
+            model.eval()
+            print("Original MT5 loaded successfully!")
+            return model.to(DEVICE), tokenizer              #type: ignore
+        except Exception as e:
+            raise RuntimeError(f"Failed to load original MT5 model: {str(e)}")
 
 
 class Translator:
@@ -89,15 +129,20 @@ class Translator:
             raise RuntimeError(f"RBMT translation failed: {str(e)}")
 
     @staticmethod
-    def translate_smt(text: str) -> str:
+    def translate_smt(text: str, smt) -> str:
         """Translate using Statistical Machine Translation."""
-        raise NotImplementedError("SMT translation not implemented")
+        try: 
+            # return smt.translate_sentence(text)
+            translation = smt.infer(text)
+            return translation
+        except Exception as e:
+            raise RuntimeError(f"SMT translation failed: {str(e)}")
 
     @staticmethod
     def translate_mbart50(
         model: MBartForConditionalGeneration, tokenizer: MBart50Tokenizer, text: str
     ) -> str:
-        """Translate using MBart50 model."""
+        """Translate using MBart50 model (fine-tuned or original)."""
         try:
             model_config = CONFIG["mbart50"]["args"]
             tokenizer.src_lang = model_config["src_lang"]
@@ -120,7 +165,7 @@ class Translator:
     def translate_mt5(
         model: MT5ForConditionalGeneration, tokenizer: MT5TokenizerFast, text: str
     ) -> str:
-        """Translate using MT5 model."""
+        """Translate using MT5 model (fine-tuned or original)."""
         try:
             prefix = CONFIG["mt5"]["args"]["prefix"]
             text = prefix + text
@@ -146,6 +191,7 @@ class Evaluator:
         """Load test data from CSV file."""
         try:
             df = pd.read_csv(test_file)
+            df = df[:100000]  # Limit to 100,000 rows
             return [{"source": row["en"], "reference": row["vi"]} for _, row in df.iterrows()]
         except Exception as e:
             raise RuntimeError(f"Failed to load test data: {str(e)}")
@@ -205,12 +251,24 @@ class Evaluator:
                     sources.append(item["source"])
 
             elif model_type == "smt":
-                print("Skipping SMT evaluation (not implemented).")
-                return [], [], {}
+                for item in tqdm(test_data, desc="Translating with SMT"):
+                    smt = ModelLoader.load_smt()
+                    translation = Translator.translate_smt(item["source"], smt)
+                    hypotheses.append(translation)
+                    references.append(item["reference"])
+                    sources.append(item["source"])
 
             elif model_type == "mbart50":
                 model, tokenizer = ModelLoader.load_mbart50()
-                for item in tqdm(test_data, desc="Translating with mBART50"):
+                for item in tqdm(test_data, desc="Translating with fine-tuned mBART50"):
+                    translation = Translator.translate_mbart50(model, tokenizer, item["source"])
+                    hypotheses.append(translation)
+                    references.append(item["reference"])
+                    sources.append(item["source"])
+
+            elif model_type == "original_mbart50":
+                model, tokenizer = ModelLoader.load_original_mbart50()
+                for item in tqdm(test_data, desc="Translating with original mBART50"):
                     translation = Translator.translate_mbart50(model, tokenizer, item["source"])
                     hypotheses.append(translation)
                     references.append(item["reference"])
@@ -218,7 +276,15 @@ class Evaluator:
 
             elif model_type == "mt5":
                 model, tokenizer = ModelLoader.load_mt5()
-                for item in tqdm(test_data, desc="Translating with MT5"):
+                for item in tqdm(test_data, desc="Translating with fine-tuned MT5"):
+                    translation = Translator.translate_mt5(model, tokenizer, item["source"])
+                    hypotheses.append(translation)
+                    references.append(item["reference"])
+                    sources.append(item["source"])
+
+            elif model_type == "original_mt5":
+                model, tokenizer = ModelLoader.load_original_mt5()
+                for item in tqdm(test_data, desc="Translating with original MT5"):
                     translation = Translator.translate_mt5(model, tokenizer, item["source"])
                     hypotheses.append(translation)
                     references.append(item["reference"])
@@ -236,8 +302,7 @@ def main():
 
     try:
         test_data = Evaluator.load_test_data(args.test_file)
-        # model_types = ["rbmt", "smt", "mbart50", "mt5"]
-        model_types = ["rbmt"]  # Limited to rbmt as per original
+        model_types = ["rbmt", "smt" "mbart50", "original_mbart50", "mt5", "original_mt5"]
         all_results = {}
 
         for model_type in model_types:

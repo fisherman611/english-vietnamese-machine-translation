@@ -244,7 +244,7 @@ class TransferBasedMT:
             
         words = self._apply_agreement(tree, words)  # Handle agreement (e.g., plurals)
         result = " ".join(words)  # Join words into a string
-        result = self._post_process_vietnamese(result)  # Clean up output
+        
         return result
 
 
@@ -319,47 +319,81 @@ class TransferBasedMT:
 
     def _add_classifiers(self, np_tree, words):
         """Add Vietnamese classifiers based on nouns."""
-        noun_indices = [
-            i for i, child in enumerate(np_tree) if isinstance(child, Tree)
-            and child.label() in ["N", "NN", "NNS", "NNP", "NNPS"]
-        ]  # Find noun positions
-        for i in noun_indices:
-            if len(words) > i and not any(
-                    words[i].startswith(prefix)
-                    for prefix in ["một_vn", "những_vn", "các_vn"
-                                   ]):  # Check if classifier is needed
-                if words[i].endswith(
-                        "_vn"
-                ):  # Add default classifier for untranslated nouns
-                    words.insert(i, "cái_vn")
+        # noun_indices = [
+        #     i for i, child in enumerate(np_tree) if isinstance(child, Tree)
+        #     and child.label() in ["N", "NN", "NNS", "NNP", "NNPS"]
+        # ]  # Find noun positions
+        # for i in noun_indices:
+        #     if len(words) > i and not any(words[i].startswith(prefix) for prefix in ["một_vn", "những_vn", "các_vn"]):  # Check if classifier is needed
+        #         if words[i].endswith("_vn"):  # Add default classifier for untranslated nouns
+        #             words.insert(i, "cái_vn")
         return words
 
 
     def _apply_tam_mapping(self, vp_tree, words):
-        """Apply Vietnamese TAM (Tense, Aspect, Mood) markers."""
+        """Apply Vietnamese TAM (Tense, Aspect, Mood) markers to the word list.
+        
+        Args:
+            vp_tree: A parse tree node representing the verb phrase.
+            words: List of words to be modified with TAM markers.
+        
+        Returns:
+            List of words with appropriate Vietnamese TAM markers inserted.
+        """
         verb_tense = None
+        mood = None
+
+        # Identify verb tense and mood from the verb phrase tree
         for child in vp_tree:
-            if isinstance(child, Tree) and child.label() in [
-                    "V",
-                    "VB",
-                    "VBD",
-                    "VBG",
-                    "VBN",
-                    "VBP",
-                    "VBZ",
-            ]:  # Identify verb tense
-                verb_tense = child.label()
-                break
-        if verb_tense:
-            if verb_tense == "VBD":  # Past tense
-                words.insert(0, "đã_vn")
-            elif verb_tense == "VB" and "will_vn" in words:  # Future tense
+            if isinstance(child, Tree):
+                # Check for verb tense
+                if child.label() in ["V", "VB", "VBD", "VBG", "VBN", "VBP", "VBZ"]:
+                    verb_tense = child.label()
+                # Check for mood indicators (e.g., modal verbs or subjunctive forms)
+                if child.label() == "MD":  # Modal verbs indicating mood
+                    mood = "indicative"
+                elif child.label() == "TO":  # Infinitive marker, often subjunctive
+                    mood = "subjunctive"
+
+        # If no verb tense is found, return the original words with a warning
+        if not verb_tense:
+            print("Warning: No verb tense identified in the verb phrase tree.")
+            return words
+
+        # Apply TAM markers based on verb tense
+        if verb_tense == "VBD":  # Past tense
+            words.insert(0, "đã_vn")  # Past marker
+        elif verb_tense == "VB":
+            if "will_vn" in words:  # Future tense
                 words = [w for w in words if w != "will_vn"]
+                words.insert(0, "sẽ_vn")  # Future marker
+            elif "going_to_vn" in words:  # Future with "going to"
+                words = [w for w in words if w != "going_to_vn"]
                 words.insert(0, "sẽ_vn")
-            elif verb_tense == "VBG":  # Present continuous
-                words.insert(0, "đang_vn")
-            elif verb_tense == "VBN":  # Past participle (perfect aspect)
-                words.insert(0, "đã_vn")
+        elif verb_tense == "VBG":  # Present continuous
+            words.insert(0, "đang_vn")  # Continuous marker
+            # Check if combined with past tense (e.g., "was running" -> "đã đang")
+            if "đã_vn" in words:
+                words.insert(0, "đã_vn")  # Add past marker before continuous
+        elif verb_tense == "VBN":  # Past participle (perfect aspect)
+            words.insert(0, "đã_vn")  # Perfect marker
+        elif verb_tense == "VBP" or verb_tense == "VBZ":  # Present tense
+            # No marker needed for simple present in Vietnamese, unless specified
+            pass
+
+        # Handle future continuous (e.g., "will be running" -> "sẽ đang")
+        if verb_tense == "VBG" and "will_vn" in words:
+            words = [w for w in words if w != "will_vn"]
+            words.insert(0, "đang_vn")  # Continuous marker
+            words.insert(0, "sẽ_vn")    # Future marker
+
+        # Apply mood markers if applicable
+        if mood == "subjunctive":
+            words.insert(0, "nếu_vn")  # Subjunctive marker (e.g., "if" clause)
+        elif mood == "indicative" and "must_vn" in words:
+            words = [w for w in words if w != "must_vn"]
+            words.insert(0, "phải_vn")  # Necessity marker
+
         return words
 
 
@@ -414,7 +448,8 @@ class TransferBasedMT:
         target_tree.pretty_print()  # Display Vietnamese parse tree
         
         # Step 4: Generate final translation
-        vietnamese_output = self.generate(target_tree)
+        raw_output = self.generate(target_tree)
+        vietnamese_output = self._post_process_vietnamese(raw_output)
         return vietnamese_output
 
 

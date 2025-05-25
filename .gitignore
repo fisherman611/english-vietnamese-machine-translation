@@ -174,3 +174,7 @@ cython_debug/
 .pypirc
 # Dataset 
 /data
+/checkpoints
+/datatest
+/visualizations
+/testinfer.py

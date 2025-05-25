@@ -17,6 +17,7 @@ from peft import PeftModel, PeftConfig
 # Add parent directory to sys.path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from models.rule_based_mt import TransferBasedMT
+from models.statistical_mt import SMTExtended, LanguageModel
 
 # Device configuration
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -46,7 +47,20 @@ class ModelLoader:
     @staticmethod
     def load_smt() -> None:
         """Load Statistical Machine Translation model."""
-        raise NotImplementedError("SMT model loading not implemented")
+        try:
+            smt = SMTExtended()
+            model_dir = "checkpoints"
+            if os.path.exists(model_dir) and os.path.isfile(os.path.join(model_dir, "phrase_table.pkl")):
+                print("Loading existing model...")
+                smt.load_model()
+            else:
+                print("Training new smt...")
+                stats = smt.train()
+                print(f"Training complete: {stats}")
+            print("SMT model loaded successfully!")
+            return smt
+        except Exception as e:
+            raise RuntimeError(f"Failed to load SMT model: {str(e)}")
 
     @staticmethod
     def load_mbart50() -> Tuple[MBartForConditionalGeneration, MBart50Tokenizer]:
@@ -89,9 +103,14 @@ class Translator:
             raise RuntimeError(f"RBMT translation failed: {str(e)}")
 
     @staticmethod
-    def translate_smt(text: str) -> str:
+    def translate_smt(text: str, smt) -> str:
         """Translate using Statistical Machine Translation."""
-        raise NotImplementedError("SMT translation not implemented")
+        try: 
+            # return smt.translate_sentence(text)
+            translation = smt.infer(text)
+            return translation
+        except Exception as e:
+            raise RuntimeError(f"SMT translation failed: {str(e)}")
 
     @staticmethod
     def translate_mbart50(
@@ -146,7 +165,8 @@ def main():
         if args.model_type == "rbmt":
             translation = Translator.translate_rbmt(args.text)
         elif args.model_type == "smt":
-            translation = Translator.translate_smt(args.text)
+            smt = ModelLoader.load_smt()
+            translation = Translator.translate_smt(args.text, smt)
         elif args.model_type == "mbart50":
             model, tokenizer = ModelLoader.load_mbart50()
             translation = Translator.translate_mbart50(args.text, model, tokenizer)

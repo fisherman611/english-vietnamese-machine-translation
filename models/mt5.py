@@ -76,10 +76,10 @@ class MT5Finetuner:
             )
         else:
             self.train_dataset = load_dataset(
-                "csv", data_files=data_files, split="train"
+                "csv", data_files=data_files, split="train[:1000000]"
             )
-            self.test_dataset = load_dataset("csv", data_files=data_files, split="test")
-            self.val_dataset = load_dataset("csv", data_files=data_files, split="val")
+            self.test_dataset = load_dataset("csv", data_files=data_files, split="test[:100000]")
+            self.val_dataset = load_dataset("csv", data_files=data_files, split="val[:100000]")
 
     def configure_lora(self):
         """Apply LoRA configuration to the model."""
