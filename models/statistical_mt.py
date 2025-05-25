@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 BILINGUAL_DATA_PATH = "bilingual_lor.csv"  # Default bilingual dataset path
 VIE_DATA_PATH = "vie_lor.csv"  # Default Vietnamese dataset path
+VISUALIZATION_PATH = "visualizations"  # Default visualization output path
 BEAM_SIZE = 3 
 MAX_PHRASE_LENGTH = 7  
 LM_ORDER = 3  
@@ -23,6 +24,7 @@ BATCH_SIZE = 1000  # For processing data in batches
 MIN_PHRASE_COUNT = 3  # Increased threshold to reduce phrase table size
 LIMIT_VOCAB = 10  # Limit vocabulary size to 10 words
 MODE_VISUALIZATION = True  # Enable visualization
+
 
 
 ################################################## 1. Language Model ##################################################
@@ -38,7 +40,16 @@ class LanguageModel:
         """Tokenize Vietnamese words"""
         return text.lower().split()
     
-    def visualize_iterations(self, word_freq, iteration, batch_tokens, output_dir="visualizations"):
+    def visualize_iterations(self, word_freq, iteration, batch_tokens, output_dir="/kaggle/working/visualizations"):
+        if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
+            # Đang chạy trên Kaggle
+            output_dir = "/kaggle/working/visualizations"
+        else:
+            # Chạy local
+            output_dir = VISUALIZATION_PATH
+
+        os.makedirs(output_dir, exist_ok=True)
+        
         """Visualize word frequency for a given iteration"""
         if not self.MODE_VISUALIZATION:
             return
@@ -81,7 +92,15 @@ class LanguageModel:
         
         return log_prob
     
-    def visualize_log_probabilities(self, sentences, max_sentences=100, output_dir="visualizations"):
+    def visualize_log_probabilities(self, sentences, max_sentences=100, output_dir="/kaggle/working/visualizations"):
+        if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
+            # Đang chạy trên Kaggle
+            output_dir = "/kaggle/working/visualizations"
+        else:
+            # Chạy local
+            output_dir = VISUALIZATION_PATH
+
+        os.makedirs(output_dir, exist_ok=True)
         """Visualize the log probabilities of a sample of sentences"""
         if not self.MODE_VISUALIZATION:
             return
@@ -240,7 +259,15 @@ class TranslationModel:
             del batch_df, aligned_sentences
             gc.collect()
             
-    def visualize_alignments(self, aligned_sentences, max_sentences=2, output_dir="visualizations"):
+    def visualize_alignments(self, aligned_sentences, max_sentences=2, output_dir="/kaggle/working/visualizations"):
+        if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
+            # Đang chạy trên Kaggle
+            output_dir = "/kaggle/working/visualizations"
+        else:
+            # Chạy local
+            output_dir = VISUALIZATION_PATH
+
+        os.makedirs(output_dir, exist_ok=True)
         """Visualize word alignments for a sample of sentence pairs"""
         if not self.MODE_VISUALIZATION:
             return
@@ -464,7 +491,15 @@ class TranslationModel:
         
         return all_aligned_sentences
     
-    def visualize_phrase_table(self, max_phrases=10, output_dir="visualizations"):
+    def visualize_phrase_table(self, max_phrases=10, output_dir="/kaggle/working/visualizations"):
+        if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
+            # Đang chạy trên Kaggle
+            output_dir = "/kaggle/working/visualizations"
+        else:
+            # Chạy local
+            output_dir = VISUALIZATION_PATH
+
+        os.makedirs(output_dir, exist_ok=True)
         """Visualize the phrase table as a heatmap with English phrases as columns and Vietnamese phrases as rows"""
         if not self.MODE_VISUALIZATION:
             return
