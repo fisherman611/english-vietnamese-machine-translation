@@ -38,7 +38,7 @@ NP -> PRP
 PP -> P NP
     | P S
 
-WhQ -> WH_Word VP0 
+WhQ -> WH_Word VP 
     | WH_Word AUX NP VP 
     | WH_Word AUX NP
 
