@@ -3,6 +3,7 @@ from typing import Dict, Any, Tuple
 import torch
 import gradio as gr
 from infer import ModelLoader, DEVICE, Translator
+from models.statistical_mt import LanguageModel
 
 # Configure logging
 logging.basicConfig(
@@ -16,10 +17,11 @@ logger = logging.getLogger(__name__)
 MODELS: Dict[str, Tuple[Any, Any]] = {
     "mbart50": (None, None),
     "mt5": (None, None),
-    "rbmt": (None, None)
+    "rbmt": (None, None),
+    "smt": (None, None)
 }
 
-def initialize_models(model_types: list[str] = ["mbart50", "mt5", "rbmt"]) -> None:
+def initialize_models(model_types: list[str] = ["mbart50", "mt5", "rbmt", "smt"]) -> None:
     """Initialize translation models and store them in MODELS dictionary.
 
     Args:
