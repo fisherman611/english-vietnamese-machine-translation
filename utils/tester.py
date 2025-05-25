@@ -191,6 +191,7 @@ class Evaluator:
         """Load test data from CSV file."""
         try:
             df = pd.read_csv(test_file)
+            df = df[:100000]  # Limit to 100,000 rows
             return [{"source": row["en"], "reference": row["vi"]} for _, row in df.iterrows()]
         except Exception as e:
             raise RuntimeError(f"Failed to load test data: {str(e)}")
