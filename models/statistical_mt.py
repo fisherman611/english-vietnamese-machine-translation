@@ -22,8 +22,11 @@ ALPHA = 0.7
 BETA = 0.3
 BATCH_SIZE = 1000  # For processing data in batches
 MIN_PHRASE_COUNT = 3  # Increased threshold to reduce phrase table size
-LIMIT_VOCAB = 10  # Limit vocabulary size to 10 words
+LIMIT_VOCAB = 100000  # Limit vocabulary size to 10 words
 MODE_VISUALIZATION = False  # Enable visualization
+from pyvi import ViTokenizer
+from nltk.tokenize import word_tokenize
+
 
 
 
@@ -38,16 +41,15 @@ class LanguageModel:
     
     def preprocess(self, text):
         """Tokenize Vietnamese words"""
-        return text.lower().split()
+        # return text.lower().split()
+        return ViTokenizer.tokenize(text.lower()).split()
     
     def visualize_iterations(self, word_freq, iteration, batch_tokens, output_dir="/kaggle/working/visualizations"):
         if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
             # Đang chạy trên Kaggle
             output_dir = "/kaggle/working/visualizations"
         else:
-            # Chạy local
             output_dir = VISUALIZATION_PATH
-
         os.makedirs(output_dir, exist_ok=True)
         
         """Visualize word frequency for a given iteration"""
@@ -58,8 +60,7 @@ class LanguageModel:
         top_words = word_freq.most_common(5)
         for word, count in top_words:
             print(f"  {word}: {count}")
-        
-        # Plot word frequency distribution
+
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         
@@ -226,7 +227,13 @@ class TranslationModel:
     
     def preprocess(self, text, lang):
         """Preprocess text for both languages"""
-        return text.lower().split()
+        text = text.lower()
+        if lang == 'eng':
+            return word_tokenize(text)
+        elif lang == 'vie':
+            return ViTokenizer.tokenize(text).split()
+        else:
+            return text.split()
     
     def load_bilingual_data_batch(self, file_path, batch_size=BATCH_SIZE):
         """Load bilingual data in batches to reduce memory usage"""
@@ -604,6 +611,10 @@ class SMT:
         self.tm = TranslationModel(max_phrase_length=MAX_PHRASE_LENGTH)
         self.decoder = None
         
+    def post_process(self, text):
+        """Replaces underscores with spaces in the translated text."""
+        return text.replace("_", " ")
+    
     def train(self):
         bilingual_path = "/kaggle/input/general-data/bilingual_cleaned_dataset.csv"
         vie_path = "/kaggle/input/general-data/vie_cleaned_dataset.csv"
@@ -644,7 +655,8 @@ class SMT:
         """Translate a single sentence"""
         if self.decoder is None:
             raise ValueError("Model not trained or loaded.")
-        return self.decoder.translate(sentence)
+        translated_text_with_underscores = self.decoder.translate(sentence)
+        return self.post_process(translated_text_with_underscores)
     
     def save_model(self):
         """Save the trained model"""
@@ -796,6 +808,74 @@ def main():
     # Final memory cleanup
     gc.collect()
     print("Processing complete!")
+
+class SMTExtended(SMT):
+    def infer(self, sentence):
+        """Translate a single arbitrary English sentence into Vietnamese using beam search"""
+        if self.decoder is None:
+            raise ValueError("Model not trained or loaded.")
+        
+        # Preprocess input sentence
+        tokens = self.tm.preprocess(sentence, 'eng')
+        if not tokens:
+            return ""
+        
+        # Initialize beam: (score, translation_tokens, last_pos, covered_positions)
+        beam = [(0.0, [], 0, set())]  # Score, translation tokens, last position, covered positions
+        best_score = float('-inf')
+        best_translation = []
+        
+        # Beam search
+        while beam:
+            new_beam = []
+            for score, trans_tokens, last_pos, covered in beam:
+                # Check if all positions are covered
+                if len(covered) == len(tokens):
+                    if score > best_score:
+                        best_score = score
+                        best_translation = trans_tokens
+                    continue
+                
+                # Find next uncovered position
+                next_pos = last_pos
+                while next_pos in covered and next_pos < len(tokens):
+                    next_pos += 1
+                
+                if next_pos >= len(tokens):
+                    if score > best_score:
+                        best_score = score
+                        best_translation = trans_tokens
+                    continue
+                
+                # Try phrases starting at next_pos
+                for phrase_len in range(1, min(self.tm.max_phrase_length + 1, len(tokens) - next_pos + 1)):
+                    eng_phrase = ' '.join(tokens[next_pos:next_pos + phrase_len])
+                    
+                    # Get possible translations from phrase table
+                    vie_translations = self.tm.phrase_table.get(eng_phrase, {})
+                    if not vie_translations and phrase_len == 1:
+                        # Fallback for single unknown word
+                        vie_translations = {tokens[next_pos]: 1.0}
+                    
+                    for vie_phrase, trans_prob in vie_translations.items():
+                        # Split Vietnamese phrase into tokens for LM scoring
+                        vie_tokens = vie_phrase.split()
+                        # Calculate new score: combine translation prob and LM prob
+                        log_trans_prob = math.log(trans_prob) if trans_prob > 0 else math.log(1e-10)
+                        lm_score = self.lm.get_probability(trans_tokens + vie_tokens)
+                        new_score = ALPHA * log_trans_prob + BETA * lm_score
+                        
+                        # Update covered positions
+                        new_covered = covered | set(range(next_pos, next_pos + phrase_len))
+                        # Add to new beam
+                        new_beam.append((score + new_score, trans_tokens + vie_tokens, next_pos + phrase_len, new_covered))
+            
+            # Keep top BEAM_SIZE hypotheses
+            new_beam.sort(key=lambda x: x[0], reverse=True)
+            beam = new_beam[:self.decoder.beam_size]
+        
+        # Return best translation
+        return ' '.join(best_translation) if best_translation else "Translation failed"
 
 if __name__ == "__main__":
     main()

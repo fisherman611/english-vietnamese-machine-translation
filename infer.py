@@ -17,7 +17,7 @@ from peft import PeftModel, PeftConfig
 # Add parent directory to sys.path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from models.rule_based_mt import TransferBasedMT
-from models.statistical_mt import SMT
+from models.statistical_mt import SMTExtended, LanguageModel
 
 # Device configuration
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -48,8 +48,15 @@ class ModelLoader:
     def load_smt() -> None:
         """Load Statistical Machine Translation model."""
         try:
-            smt = SMT()
-            smt.load_model()
+            smt = SMTExtended()
+            model_dir = "checkpoints"
+            if os.path.exists(model_dir) and os.path.isfile(os.path.join(model_dir, "phrase_table.pkl")):
+                print("Loading existing model...")
+                smt.load_model()
+            else:
+                print("Training new smt...")
+                stats = smt.train()
+                print(f"Training complete: {stats}")
             print("SMT model loaded successfully!")
             return smt
         except Exception as e:
@@ -99,7 +106,9 @@ class Translator:
     def translate_smt(text: str, smt) -> str:
         """Translate using Statistical Machine Translation."""
         try: 
-            return smt.translate_sentence(text)
+            # return smt.translate_sentence(text)
+            translation = smt.infer(text)
+            return translation
         except Exception as e:
             raise RuntimeError(f"SMT translation failed: {str(e)}")
 
