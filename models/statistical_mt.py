@@ -12,8 +12,8 @@ import random
 import gc
 import matplotlib.pyplot as plt
 import numpy as np
-BILINGUAL_DATA_PATH = "bilingual_lor.csv"  # Default bilingual dataset path
-VIE_DATA_PATH = "vie_lor.csv"  # Default Vietnamese dataset path
+BILINGUAL_DATA_PATH = "bilingual_cleaned_dataset.csv"  # Default bilingual dataset path
+VIE_DATA_PATH = "vie_cleaned_dataset.csv"  # Default Vietnamese dataset path
 VISUALIZATION_PATH = "visualizations"  # Default visualization output path
 BEAM_SIZE = 3 
 MAX_PHRASE_LENGTH = 7  
@@ -23,7 +23,7 @@ BETA = 0.3
 BATCH_SIZE = 1000  # For processing data in batches
 MIN_PHRASE_COUNT = 3  # Increased threshold to reduce phrase table size
 LIMIT_VOCAB = 10  # Limit vocabulary size to 10 words
-MODE_VISUALIZATION = True  # Enable visualization
+MODE_VISUALIZATION = False  # Enable visualization
 
 
 
