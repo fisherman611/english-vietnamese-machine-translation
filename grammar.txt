@@ -1,27 +1,49 @@
-S -> NP VP | WhQ | YNQ |
-VP -> V | V NP | V NP PP | V PP | V S | VP Conj VP | Modal VP | V To VP | AdvP VP | VP AdvP
-NP -> PRP | N | PRPS N | Det N | Det AdjP N | Det N PP | NP PP | NP RelClause | PropN | Quant N | CD N | Det
-PP -> P NP
-WhQ -> WH_Word VP | WH_Word AUX NP VP | WH_Word BE NP | WH_Word DO NP VP | WH_Word MD NP VP
+S -> NP VP | WhQ | YNQ | IMP | S Conj S | S AdvP 
+
+VP -> V | V NP | V NP PP | V PP | V S | VP Conj VP | Modal VP | V To VP | AdvP VP | VP AdvP | VP NP NP | V AdjP | v PP PP
+
+NP -> PRP | N | PRPS N | Det N | Det AdjP N | Det N PP | NP PP | NP RelClause | PropN | Quant N | CD N | Det| NP Conj NP | N PP | N S
+
+PP -> P NP | P S
+
+WhQ -> WH_Word VP | WH_Word AUX NP VP | WH_Word AUX NP
+
 YNQ -> AUX NP VP | BE NP | BE NP Adj | BE NP NP | BE NP PP | DO NP VP | MD NP VP
 
-RelClause -> WDT VP | WP VP
-Det -> DT | PDT | WDT
+IMP -> V NP | V | V PP
+
+RelClause -> WDT VP | WP VP | NP VP | WDT NP VP | WP NP VP | PP WDT VP            
+
+Det -> DT | PDT | WDT | PPRS | CD | DT | DT DT 
+
 Adj -> JJ | JJR | JJS
+
 Adv -> RB | RBR | RBS | WRB
-Conj -> CC
+
+Conj -> CC| IN
+
 Modal -> MD
+
 To -> TO
+
 PropN -> NNP | NNPS
+
 Quant -> CD | DT
-N -> NN | NNS | NNP | NNPS
+
+N -> NN | NNS | NNP | NNPS| CD
+
 V -> VB | VBD | VBG | VBN | VBP | VBZ
+
 P -> IN
 
 WH_Word -> WRB | WP | WDT
-DO -> VBP | VBZ | VBD
-BE -> VBZ | VBP | VBD 
-AUX -> MD | DO | BE
 
-AdvP -> Adv | Adv Adv | AdvP Conj AdvP | PP
-AdjP -> Adj | Adv Adj | AdjP Conj AdjP
+DO -> VBP | VBZ | VBD
+
+BE -> VBZ | VBP | VBD | VB | VBN | VBG
+
+AUX -> MD | DO | BE | VBP | VBZ | VBD
+
+AdvP -> Adv | Adv Adv | AdvP Conj AdvP | PP| AdvP PP
+
+AdjP -> Adj | Adv Adj | AdjP Conj AdjP | AdjP PP

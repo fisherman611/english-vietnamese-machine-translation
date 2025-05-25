@@ -79,7 +79,8 @@ for eng_sent in tqdm(english_sentences):
 dictionary = {}
 for word in list(eng_vocabs.keys()): 
     dictionary[word] = translate_word(word)
-    
+
+dictionary = {k: v for k, v in dictionary.items() if v != "N/A"}
 sorted_dictionary = sorted(dictionary.items(), key=lambda x: x[0])
 final_dict = dict(sorted_dictionary)
 

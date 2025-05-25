@@ -175,47 +175,37 @@ class TransferBasedMT:
         
         # Wh-Question: adjust word order 
         elif tree.label() == "WhQ":
-            # For wh-questions in Vietnamese, the wh-word often stays in the same position as in English
-            # but sometimes moves to the end in colloquial speech
             children = [self.transfer_grammar(child) for child in tree]
+            child_labels = [child.label() if isinstance(child, Tree) else child for child in children] 
             
-            # Try to identify the wh-word and the rest of the question
-            wh_word_idx = None
-            for i, child in enumerate(children):
-                if isinstance(child, Tree) and child.label() == "WH_Word":
-                    wh_word_idx = i
-                    break
+            if len(children) >= 4 and "WH_Word" in child_labels and "AUX" in child_labels and "NP" in child_labels and "VP" in child_labels:
+                return Tree("WhQ", [children[2], children[3], children[0]])  # Remove AUX from  WH_Word AUX NP VP            
             
-            if wh_word_idx is not None:
-                # For "how many/much" questions, keep the order similar to English
-                wh_word_text = " ".join(tree[wh_word_idx].leaves()).lower()    #type: ignore
-                if wh_word_text in ["how many", "how much"]:
-                    return Tree("WhQ", children)
-                
-                # For other wh-questions, Vietnamese generally follows SVO order
-                # but keeps the question word at the beginning
-                return Tree("WhQ", children)
+            elif len(children) >= 3 and "WH_Word" in child_labels and "NP" in child_labels and "VP" in child_labels and "AUX" not in child_labels:
+                return Tree("WhQ", [children[1], children[2], children[0]])
+            
+            elif len(children) >= 2 and "WH_Word" in child_labels and "VP" in child_labels:
+                if len(children[1]) >= 2:
+                    return Tree("WhQ", [children[1][1], children[1][0], children[0]])  # WH_Word VP -> WH_Word V NP
+
             else:
-                return Tree("WhQ", children) 
-        
+                return Tree("WhQ", children)  # Default: preserve order
+            
         # Yes/No-Question: adjust word order 
         elif tree.label() == "YNQ":
-            # For yes/no questions in Vietnamese, no auxiliary inversion is needed
-            # Instead, we'll add question particles at the end
             children = [self.transfer_grammar(child) for child in tree]
+            child_labels = [child.label() if isinstance(child, Tree) else child for child in children] 
             
-            # Remove auxiliary verbs like "do", "does", "did" that aren't needed in Vietnamese
-            filtered_children = []
-            for child in children:
-                if isinstance(child, Tree) and child.label() == "AUX":
-                    aux_text = " ".join(child.leaves()).lower()
-                    if aux_text in ["do", "does", "did"]:
-                        continue  # Skip these auxiliaries
-                filtered_children.append(child)
-                
-            # We'll let the generation phase handle adding question particles
-            # to avoid duplication with _process_yn_question
-            return Tree("YNQ", filtered_children)
+            if len(children) >= 3 and "AUX" in child_labels and "NP" in child_labels and "VP" in child_labels:
+                return Tree("YNQ", [children[1], children[2]])
+            
+            elif len(children) >= 3 and "DO" in child_labels and "NP" in child_labels and "VP" in child_labels:
+                return Tree("YNQ", [children[1], children[2]])
+            
+            elif len(children) >= 3 and "MD" in child_labels and "NP" in child_labels and "VP" in child_labels:
+                return Tree("YNQ", [children[1], children[2]])
+            
+            return Tree("YNQ", children)
             
         
         # Other labels: recurse through children
@@ -472,11 +462,30 @@ if __name__ == "__main__":
         "Why did he leave early?",
         "How do you feel today?",
         "I live in New York"
-        
     ]
+    
+    test_sentences_2 = [
+        # YNQ -> BE NP
+        "Is the renowned astrophysicist still available for the conference?",
+        "Are those adventurous explorers currently in the remote jungle?",
+        "Was the mysterious stranger already gone by midnight?",
+        # YNQ -> BE NP Adj
+        "Is the vibrant annual festival exceptionally spectacular this season?",
+        "Are the newly discovered species remarkably resilient to harsh climates?",
+        "Were the ancient ruins surprisingly well-preserved after centuries?",
+        # YNQ -> BE NP NP
+        "Is she the brilliant leader of the innovative research team?",
+        "Are they the enthusiastic organizers of the grand charity event?",
+        "Was he the sole survivor of the perilous expedition?",
+        # YNQ -> BE NP PP
+        "Is the priceless artifact still hidden in the ancient underground chamber?",
+        "Are the colorful tropical birds nesting high above the lush rainforest canopy?",
+        "Was the historic manuscript carefully stored within the fortified library vault?"
+    ]
+    
     print("English to Vietnamese Translation Examples:")
     print("-" * 50)
-    for sentence in test_sentences:
+    for sentence in test_sentences_2:
         print(f"English: {sentence}")
         translation = translator.translate(sentence)
         print(f"Vietnamese: {translation}")
