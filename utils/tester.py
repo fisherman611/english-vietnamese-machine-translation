@@ -47,7 +47,7 @@ class ModelLoader:
 
     @staticmethod
     def load_mbart50() -> Tuple[MBartForConditionalGeneration, MBart50Tokenizer]:
-        """Load MBart50 model and tokenizer."""
+        """Load fine-tuned MBart50 model and tokenizer."""
         try:
             model_config = CONFIG["mbart50"]["paths"]
             model = MBartForConditionalGeneration.from_pretrained(model_config["base_model_name"])
@@ -55,14 +55,27 @@ class ModelLoader:
             model = PeftModel.from_pretrained(model, model_config["checkpoint_path"])
             tokenizer = MBart50Tokenizer.from_pretrained(model_config["checkpoint_path"])
             model.eval()
-            print("MBart50 loaded successfully!")
+            print("Fine-tuned MBart50 loaded successfully!")
             return model.to(DEVICE), tokenizer              #type: ignore
         except Exception as e:
-            raise RuntimeError(f"Failed to load MBart50 model: {str(e)}")
+            raise RuntimeError(f"Failed to load fine-tuned MBart50 model: {str(e)}")
+
+    @staticmethod
+    def load_original_mbart50() -> Tuple[MBartForConditionalGeneration, MBart50Tokenizer]:
+        """Load original MBart50 model and tokenizer."""
+        try:
+            model_name = "facebook/mbart-large-50-many-to-many-mmt"
+            model = MBartForConditionalGeneration.from_pretrained(model_name)
+            tokenizer = MBart50Tokenizer.from_pretrained(model_name)
+            model.eval()
+            print("Original MBart50 loaded successfully!")
+            return model.to(DEVICE), tokenizer              #type: ignore
+        except Exception as e:
+            raise RuntimeError(f"Failed to load original MBart50 model: {str(e)}")
 
     @staticmethod
     def load_mt5() -> Tuple[MT5ForConditionalGeneration, MT5TokenizerFast]:
-        """Load MT5 model and tokenizer."""
+        """Load fine-tuned MT5 model and tokenizer."""
         try:
             model_config = CONFIG["mt5"]["paths"]
             model = MT5ForConditionalGeneration.from_pretrained(model_config["base_model_name"])
@@ -70,10 +83,23 @@ class ModelLoader:
             model = PeftModel.from_pretrained(model, model_config["checkpoint_path"])
             tokenizer = MT5TokenizerFast.from_pretrained(model_config["checkpoint_path"])
             model.eval()
-            print("MT5 loaded successfully!")
+            print("Fine-tuned MT5 loaded successfully!")
             return model.to(DEVICE), tokenizer              #type: ignore
         except Exception as e:
-            raise RuntimeError(f"Failed to load MT5 model: {str(e)}")
+            raise RuntimeError(f"Failed to load fine-tuned MT5 model: {str(e)}")
+
+    @staticmethod
+    def load_original_mt5() -> Tuple[MT5ForConditionalGeneration, MT5TokenizerFast]:
+        """Load original MT5 model and tokenizer."""
+        try:
+            model_name = "google/mt5-base"
+            model = MT5ForConditionalGeneration.from_pretrained(model_name)
+            tokenizer = MT5TokenizerFast.from_pretrained(model_name)
+            model.eval()
+            print("Original MT5 loaded successfully!")
+            return model.to(DEVICE), tokenizer              #type: ignore
+        except Exception as e:
+            raise RuntimeError(f"Failed to load original MT5 model: {str(e)}")
 
 
 class Translator:
@@ -97,7 +123,7 @@ class Translator:
     def translate_mbart50(
         model: MBartForConditionalGeneration, tokenizer: MBart50Tokenizer, text: str
     ) -> str:
-        """Translate using MBart50 model."""
+        """Translate using MBart50 model (fine-tuned or original)."""
         try:
             model_config = CONFIG["mbart50"]["args"]
             tokenizer.src_lang = model_config["src_lang"]
@@ -120,7 +146,7 @@ class Translator:
     def translate_mt5(
         model: MT5ForConditionalGeneration, tokenizer: MT5TokenizerFast, text: str
     ) -> str:
-        """Translate using MT5 model."""
+        """Translate using MT5 model (fine-tuned or original)."""
         try:
             prefix = CONFIG["mt5"]["args"]["prefix"]
             text = prefix + text
@@ -210,7 +236,15 @@ class Evaluator:
 
             elif model_type == "mbart50":
                 model, tokenizer = ModelLoader.load_mbart50()
-                for item in tqdm(test_data, desc="Translating with mBART50"):
+                for item in tqdm(test_data, desc="Translating with fine-tuned mBART50"):
+                    translation = Translator.translate_mbart50(model, tokenizer, item["source"])
+                    hypotheses.append(translation)
+                    references.append(item["reference"])
+                    sources.append(item["source"])
+
+            elif model_type == "original_mbart50":
+                model, tokenizer = ModelLoader.load_original_mbart50()
+                for item in tqdm(test_data, desc="Translating with original mBART50"):
                     translation = Translator.translate_mbart50(model, tokenizer, item["source"])
                     hypotheses.append(translation)
                     references.append(item["reference"])
@@ -218,7 +252,15 @@ class Evaluator:
 
             elif model_type == "mt5":
                 model, tokenizer = ModelLoader.load_mt5()
-                for item in tqdm(test_data, desc="Translating with MT5"):
+                for item in tqdm(test_data, desc="Translating with fine-tuned MT5"):
+                    translation = Translator.translate_mt5(model, tokenizer, item["source"])
+                    hypotheses.append(translation)
+                    references.append(item["reference"])
+                    sources.append(item["source"])
+
+            elif model_type == "original_mt5":
+                model, tokenizer = ModelLoader.load_original_mt5()
+                for item in tqdm(test_data, desc="Translating with original MT5"):
                     translation = Translator.translate_mt5(model, tokenizer, item["source"])
                     hypotheses.append(translation)
                     references.append(item["reference"])
@@ -236,8 +278,7 @@ def main():
 
     try:
         test_data = Evaluator.load_test_data(args.test_file)
-        # model_types = ["rbmt", "smt", "mbart50", "mt5"]
-        model_types = ["rbmt"]  # Limited to rbmt as per original
+        model_types = ["rbmt", "mbart50", "original_mbart50", "mt5", "original_mt5"]
         all_results = {}
 
         for model_type in model_types:
