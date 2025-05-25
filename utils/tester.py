@@ -20,6 +20,7 @@ import evaluate
 # Add parent directory to sys.path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from models.rule_based_mt import TransferBasedMT
+from models.statistical_mt import SMTExtended, LanguageModel
 
 # Device configuration
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -41,9 +42,22 @@ class ModelLoader:
     """Handles loading of translation models."""
 
     @staticmethod
-    def load_smt():
+    def load_smt() -> None:
         """Load Statistical Machine Translation model."""
-        raise NotImplementedError("SMT model loading not implemented")
+        try:
+            smt = SMTExtended()
+            model_dir = "checkpoints"
+            if os.path.exists(model_dir) and os.path.isfile(os.path.join(model_dir, "phrase_table.pkl")):
+                print("Loading existing model...")
+                smt.load_model()
+            else:
+                print("Training new smt...")
+                stats = smt.train()
+                print(f"Training complete: {stats}")
+            print("SMT model loaded successfully!")
+            return smt
+        except Exception as e:
+            raise RuntimeError(f"Failed to load SMT model: {str(e)}")
 
     @staticmethod
     def load_mbart50() -> Tuple[MBartForConditionalGeneration, MBart50Tokenizer]:
@@ -115,9 +129,14 @@ class Translator:
             raise RuntimeError(f"RBMT translation failed: {str(e)}")
 
     @staticmethod
-    def translate_smt(text: str) -> str:
+    def translate_smt(text: str, smt) -> str:
         """Translate using Statistical Machine Translation."""
-        raise NotImplementedError("SMT translation not implemented")
+        try: 
+            # return smt.translate_sentence(text)
+            translation = smt.infer(text)
+            return translation
+        except Exception as e:
+            raise RuntimeError(f"SMT translation failed: {str(e)}")
 
     @staticmethod
     def translate_mbart50(
@@ -278,7 +297,7 @@ def main():
 
     try:
         test_data = Evaluator.load_test_data(args.test_file)
-        model_types = ["rbmt", "mbart50", "original_mbart50", "mt5", "original_mt5"]
+        model_types = ["rbmt", "smt" "mbart50", "original_mbart50", "mt5", "original_mt5"]
         all_results = {}
 
         for model_type in model_types:
