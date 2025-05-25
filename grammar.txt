@@ -1,140 +1,49 @@
-S -> NP VP 
-    | WhQ 
-    | YNQ 
-    | IMP 
-    | S Conj S
-    | S AdvP 
+S -> NP VP | WhQ | YNQ | IMP | S Conj S | S AdvP 
 
-VP -> V 
-    | V NP 
-    | V NP PP 
-    | V PP 
-    | V S 
-    | VP Conj VP 
-    | Modal VP 
-    | V To VP 
-    | AdvP VP 
-    | VP AdvP
-    | VP NP NP
-    | V AdjP
-    | v PP PP
+VP -> V | V NP | V NP PP | V PP | V S | VP Conj VP | Modal VP | V To VP | AdvP VP | VP AdvP | VP NP NP | V AdjP | v PP PP
 
-NP -> PRP 
-    | N 
-    | PRPS N 
-    | Det N 
-    | Det AdjP N 
-    | Det N PP 
-    | NP PP 
-    | NP RelClause 
-    | PropN 
-    | Quant N 
-    | CD N 
-    | Det
-    | NP Conj NP 
-    | N PP 
-    | N S
+NP -> PRP | N | PRPS N | Det N | Det AdjP N | Det N PP | NP PP | NP RelClause | PropN | Quant N | CD N | Det| NP Conj NP | N PP | N S
 
-PP -> P NP
-    | P S
+PP -> P NP | P S
 
-WhQ -> WH_Word VP 
-    | WH_Word AUX NP VP 
-    | WH_Word AUX NP
+WhQ -> WH_Word VP | WH_Word AUX NP VP | WH_Word AUX NP
 
-YNQ -> AUX NP VP 
-    | BE NP 
-    | BE NP Adj 
-    | BE NP NP 
-    | BE NP PP 
-    | DO NP VP 
-    | MD NP VP
+YNQ -> AUX NP VP | BE NP | BE NP Adj | BE NP NP | BE NP PP | DO NP VP | MD NP VP
 
-IMP -> V NP 
-    | V 
-    | V PP
+IMP -> V NP | V | V PP
 
-RelClause -> WDT VP 
-            | WP VP
-            | NP VP 
-            | WDT NP VP
-            | WP NP VP 
-            | PP WDT VP            
+RelClause -> WDT VP | WP VP | NP VP | WDT NP VP | WP NP VP | PP WDT VP            
 
-Det -> DT 
-    | PDT 
-    | WDT
-    | PPRS 
-    | CD 
-    | DT 
-    | DT DT 
+Det -> DT | PDT | WDT | PPRS | CD | DT | DT DT 
 
-Adj -> JJ 
-    | JJR 
-    | JJS
+Adj -> JJ | JJR | JJS
 
-Adv -> RB 
-    | RBR 
-    | RBS 
-    | WRB
+Adv -> RB | RBR | RBS | WRB
 
-Conj -> CC
-    | IN
+Conj -> CC| IN
 
 Modal -> MD
 
 To -> TO
 
-PropN -> NNP 
-    | NNPS
+PropN -> NNP | NNPS
 
-Quant -> CD 
-    | DT
+Quant -> CD | DT
 
-N -> NN 
-    | NNS 
-    | NNP 
-    | NNPS
-    | CD
+N -> NN | NNS | NNP | NNPS| CD
 
-V -> VB 
-    | VBD 
-    | VBG 
-    | VBN 
-    | VBP 
-    | VBZ
+V -> VB | VBD | VBG | VBN | VBP | VBZ
 
 P -> IN
 
-WH_Word -> WRB 
-    | WP 
-    | WDT
+WH_Word -> WRB | WP | WDT
 
-DO -> VBP 
-    | VBZ 
-    | VBD
+DO -> VBP | VBZ | VBD
 
-BE -> VBZ 
-    | VBP 
-    | VBD 
-    | VB 
-    | VBN
-    | VBG
+BE -> VBZ | VBP | VBD | VB | VBN | VBG
 
-AUX -> MD 
-    | DO 
-    | BE
-    | VBP 
-    | VBZ 
-    | VBD
+AUX -> MD | DO | BE | VBP | VBZ | VBD
 
-AdvP -> Adv 
-    | Adv Adv 
-    | AdvP Conj AdvP 
-    | PP
-    | AdvP PP
+AdvP -> Adv | Adv Adv | AdvP Conj AdvP | PP| AdvP PP
 
-AdjP -> Adj 
-    | Adv Adj 
-    | AdjP Conj AdjP
-    | AdjP PP
+AdjP -> Adj | Adv Adj | AdjP Conj AdjP | AdjP PP
