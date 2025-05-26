@@ -106,7 +106,7 @@ class Translator:
     def translate_smt(text: str, smt) -> str:
         """Translate using Statistical Machine Translation."""
         try: 
-            # return smt.translate_sentence(text)
+            return smt.translate_sentence(text)
             translation = smt.infer(text)
             return translation
         except Exception as e:

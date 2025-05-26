@@ -12,6 +12,7 @@ import random
 import gc
 import matplotlib.pyplot as plt
 import numpy as np
+import contractions
 BILINGUAL_DATA_PATH = "bilingual_cleaned_dataset.csv"  # Default bilingual dataset path
 VIE_DATA_PATH = "vie_cleaned_dataset.csv"  # Default Vietnamese dataset path
 VISUALIZATION_PATH = "visualizations"  # Default visualization output path
@@ -229,6 +230,7 @@ class TranslationModel:
         """Preprocess text for both languages"""
         text = text.lower()
         if lang == 'eng':
+            text = contractions.fix(text)
             return word_tokenize(text)
         elif lang == 'vie':
             return ViTokenizer.tokenize(text).split()
