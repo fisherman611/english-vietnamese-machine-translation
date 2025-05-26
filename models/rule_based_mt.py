@@ -240,35 +240,26 @@ class TransferBasedMT:
 
     def _process_wh_question(self, tree, words):
         """Process a Wh-question structure for Vietnamese."""
-        # In Vietnamese, we often add question particles at the end
-        # and sometimes move the question word to the end for some questions
-        
-        # First, filter out empty strings
         words = [w for w in words if w]
-        
-        # Get the question word if present
+  
         wh_word = None
         for word in words:
             if word in ["cái gì", "ai", "ở đâu", "khi nào", "tại sao", "như thế nào", "cái nào", "của ai"]:
                 wh_word = word
                 break
         
-        # Some Vietnamese questions might need restructuring
-        if wh_word == "tại sao":  # "why" questions
-            # Move "tại sao" to the beginning if not already there
+        if wh_word == "tại sao": 
             if words and words[0] != "tại sao":
                 words.remove("tại sao")
                 words.insert(0, "tại sao")
-        elif wh_word == "như thế nào":  # "how" questions
-            # For "how" questions, sometimes add question particle "vậy" at the end
+        elif wh_word == "như thế nào":
             if "vậy" not in words:
                 words.append("vậy")
         
-        # Add appropriate final particle for questions that need it
         question_particles = ["vậy", "thế", "à", "hả"]
         has_particle = any(particle in words for particle in question_particles)
         
-        if not has_particle and wh_word != "tại sao":  # "why" questions don't usually need final particles
+        if not has_particle and wh_word != "tại sao": 
             words.append("vậy")
             
         return words
@@ -276,22 +267,14 @@ class TransferBasedMT:
 
     def _process_yn_question(self, tree, words):
         """Process a Yes/No question structure for Vietnamese."""
-        # In Vietnamese, yes/no questions often use a structure like:
-        # [statement] + question particle
-        # or [statement] + không/phải không
         
-        # Filter out auxiliary verbs not needed in Vietnamese
         words = [w for w in words if w not in ["", "do_vn", "does_vn", "did_vn"]]
         
-        # Check if we already have a question particle - also check for _vn suffix versions
         has_question_particle = any(w in ["không", "à", "hả", "nhỉ", "chứ"] or 
                                    w in ["không_vn", "à_vn", "hả_vn", "nhỉ_vn", "chứ_vn"] 
                                    for w in words)
         
-        # If no question particle, add "không" (most common yes/no question structure)
         if not has_question_particle:
-            # If it appears to be a question about the past (has "đã"), 
-            # use "phải không" instead of just "không"
             if "đã" in words or "đã_vn" in words:
                 words.append("phải không")
             else:
@@ -336,39 +319,34 @@ class TransferBasedMT:
         # Identify verb tense and mood from the verb phrase tree
         for child in vp_tree:
             if isinstance(child, Tree):
-                # Check for verb tense
                 if child.label() in ["V", "VB", "VBD", "VBG", "VBN", "VBP", "VBZ"]:
                     verb_tense = child.label()
-                # Check for mood indicators (e.g., modal verbs or subjunctive forms)
                 if child.label() == "MD":  # Modal verbs indicating mood
                     mood = "indicative"
                 elif child.label() == "TO":  # Infinitive marker, often subjunctive
                     mood = "subjunctive"
 
-        # If no verb tense is found, return the original words with a warning
         if not verb_tense:
             print("Warning: No verb tense identified in the verb phrase tree.")
             return words
 
         # Apply TAM markers based on verb tense
-        if verb_tense == "VBD":  # Past tense
-            words.insert(0, "đã_vn")  # Past marker
+        if verb_tense == "VBD":  
+            words.insert(0, "đã_vn") 
         elif verb_tense == "VB":
-            if "will_vn" in words:  # Future tense
+            if "will_vn" in words:  
                 words = [w for w in words if w != "will_vn"]
-                words.insert(0, "sẽ_vn")  # Future marker
-            elif "going_to_vn" in words:  # Future with "going to"
+                words.insert(0, "sẽ_vn")  
+            elif "going_to_vn" in words:  
                 words = [w for w in words if w != "going_to_vn"]
                 words.insert(0, "sẽ_vn")
-        elif verb_tense == "VBG":  # Present continuous
-            words.insert(0, "đang_vn")  # Continuous marker
-            # Check if combined with past tense (e.g., "was running" -> "đã đang")
+        elif verb_tense == "VBG":  
+            words.insert(0, "đang_vn")  
             if "đã_vn" in words:
-                words.insert(0, "đã_vn")  # Add past marker before continuous
-        elif verb_tense == "VBN":  # Past participle (perfect aspect)
-            words.insert(0, "đã_vn")  # Perfect marker
-        elif verb_tense == "VBP" or verb_tense == "VBZ":  # Present tense
-            # No marker needed for simple present in Vietnamese, unless specified
+                words.insert(0, "đã_vn")  
+        elif verb_tense == "VBN":  
+            words.insert(0, "đã_vn")  
+        elif verb_tense == "VBP" or verb_tense == "VBZ":
             pass
 
         # Handle future continuous (e.g., "will be running" -> "sẽ đang")
