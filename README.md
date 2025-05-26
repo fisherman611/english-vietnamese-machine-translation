@@ -1,127 +1,131 @@
-# **English-Vietnamese Machine Translation**  
+# **English-Vietnamese Machine Translation**
 
-## 📌 Project Overview  
+## 📌 Project Overview
 
-This project aims to develop an **English-to-Vietnamese Machine Translation System**. The goal is to explore multiple approaches—**Rule-Based Machine Translation (RBMT), Statistical Machine Translation (SMT), and Neural Machine Translation (NMT)**—to assess their effectiveness using standard evaluation metrics.  
+This project aims to build an effective **English-to-Vietnamese Machine Translation System**, evaluating the performance of three major paradigms in MT:
 
-## 🔹 **Project Scope**  
+- **Rule-Based Machine Translation (RBMT)**
+- **Statistical Machine Translation (SMT)**
+- **Neural Machine Translation (NMT)**
 
-### 🔹 **Translation Approaches**  
-We will implement and compare the following machine translation methods:  
-
-- **Rule-Based Machine Translation (RBMT)** – Uses linguistic rules and grammar-based approaches.  
-- **Statistical Machine Translation (SMT)** – Leverages statistical models to determine the most probable translation.  
-- **Neural Machine Translation (NMT)** – Utilizes deep learning models, particularly **LSTM** and **Transformers** (pretrained models like **BERT**, **GPT**, **mBART50**, **T5**).  
-
-### 🔹 **Evaluation Metrics**  
-To assess translation quality, we will use the following metrics:  
-- **BLEU** – Evaluates n-gram precision and is widely used in translation benchmarks.
-- **ROUGE** – Measures recall-oriented n-gram overlap (good for longer text).
-- **METEOR** – Considers stemming and synonyms for more flexible matching.
-- **COMET** – Uses embeddings from a pre-trained model to evaluate the similarity between source, reference, and hypothesis translations.
-- **BERTScore** – Uses transformer embeddings and computes cosine similarity between reference and hypothesis tokens.
-
-📌 **References:**
-
-🔗 [BLEU: a Method for Automatic Evaluation of Machine Translation](https://aclanthology.org/P02-1040.Pdf)
-
-🔗 [ROUGE: A Package for Automatic Evaluation of Summaries](https://aclanthology.org/W04-1013.pdf)
-
-🔗 [METEOR: An Automatic Metric for MT Evaluation with Improved Correlation with Human Judgments ](https://aclanthology.org/W05-0909.pdf)
-
-🔗 [COMET: A Neural Framework for MT Evaluation](https://aclanthology.org/2020.emnlp-main.213.pdf)
-
-🔗 [BERTSCORE: EVALUATING TEXT GENERATION WITH BERT](https://openreview.net/pdf?id=SkeHuCVFDr)
-
-🔗 [Exploring Robustness of Machine Translation Metrics: A Study of Twenty-Eight Automatic Metrics in the WMT22 Metric Task](https://aclanthology.org/2022.wmt-1.46.pdf)
-
+Our objective is to implement, train, and assess these models using reliable evaluation metrics.
 
 ---
 
-## 📥 **Input**  
-- An English sentence.  
+## 🔬 Scope and Methodologies
 
-## 📤 **Output**  
-- The corresponding Vietnamese translation.  
+### 🧠 Translation Approaches
 
----
+#### 1. Rule-Based Machine Translation (RBMT)
+- Implements **Transfer-Based Machine Translation (TBMT)** using handcrafted syntactic, grammatical, and semantic rules.
+- Workflow: POS Tagging → Syntactic Parsing → Transfer Grammar → Lexical Transfer → Generation
+- Strength: Transparent, rule-driven system.
+- Limitation: Costly and less adaptable.
 
-## 📚 **Dataset**  
+#### 2. Statistical Machine Translation (SMT)
+- Phrase-based SMT model trained on aligned bilingual corpora.
+- Translation generated using: `argmax_E P(E|V) P(V)`.
 
-We will use the **English-Vietnamese parallel corpus** from Hugging Face:  
-🔗 [Dataset Link](https://huggingface.co/datasets/ncduy/mt-en-vi/tree/main)  
-
-This dataset is already divided into **three parts**:  
-
-|       | **Train** | **Validation** | **Test** |
-|-------|----------|--------------|--------|
-| **Number of Examples** | 2,884,451 | 11,316 | 11,225 |
-
-Each subset contains the following features:  
-- **`en`**: English sentence.  
-- **`vi`**: Corresponding Vietnamese sentence.  
-- **`source`**: The source from which the example is taken.  
-
-In this project, we focus on a randomly selected subset of the dataset, consisting of either 300,000 or 500,000 rows. Below is the specific subset used in our analysis:
-
-🔗 [Sub-dataset Link](https://husteduvn-my.sharepoint.com/:f:/g/personal/thanh_lh225458_sis_hust_edu_vn/EnNCEp9SLQBPl2xn_qOY19QBMr_kNMVvXuK6h8JwmEBpIw?e=gar0gN)
-
-### 🔹 **Data Processing Steps**  
-✔ **Exploratory Data Analysis (EDA)**  
-✔ **Data Preprocessing** (Tokenization, Cleaning, Handling Special Cases)  
+#### 3. Neural Machine Translation (NMT)
+- Encoder-Decoder architecture with Attention.
+- Models used: LSTM, RNN, Transformers with BERT, GPT, mBART50, T5 (via Hugging Face).
+- Improvements: Pointer-Generator, Coverage Vector, Beam Search.
 
 ---
 
-## 🤖 **Models & Approaches**  
+## 🧪 Evaluation Metrics
 
-### **1️⃣ Rule-Based Machine Translation (RBMT)**  
-- A linguistic approach using grammatical rules and dictionary lookups.  
-
-📌 **References:**  
-
-🔗 [Statistical Vs Rule Based Machine Translation; A Case Study on Indian Language Perspective](https://arxiv.org/pdf/1708.04559)
-
----
-
-### **2️⃣ Statistical Machine Translation (SMT)**  
-- Utilizes **phrase-based models**, **word alignment**, and **probability-based translation rules**.  
-
-📌 **References:**  
-
-🔗 [Statistical Vs Rule Based Machine Translation; A Case Study on Indian Language Perspective](https://arxiv.org/pdf/1708.04559)
+| Metric       | Description                                                       |
+|--------------|-------------------------------------------------------------------|
+| **BLEU**     | N-gram precision; penalizes overly short outputs.                 |
+| **ROUGE**    | Recall-based metric; useful for longer sequences.                 |
+| **METEOR**   | Uses synonyms/stemming; better correlates with human evaluation. |
+| **COMET**    | Embedding-based; evaluates source, reference & hypothesis.        |
+| **BERTScore**| Embedding similarity using BERT token vectors.                    |
 
 ---
 
-### **3️⃣ Neural Machine Translation (NMT)**  
-This approach will focus on **deep learning models** to improve translation accuracy.  
+## 📥 Input & 📤 Output
 
-✅ **LSTM-based NMT**  
-✅ **RNN-based NMT** 
-✅ **Transformer-based NMT** (using pretrained models from Hugging Face)  
-- **BERT**  
-- **GPT**
-- **mBART50**
-- **T5**
+- **Input**: English sentence  
+  _Example_: `"Hello, how are you?"`
 
-📌 **References:**  
-
-🔗 [Sequence to Sequence Learning with Neural Networks](https://arxiv.org/pdf/1409.3215)
-
-🔗 [Study of Neural Machine Translation With Long Short-Term Memory Techniques](https://www.researchgate.net/publication/365595688_Study-of-Neural-Machine-Translation-With-Long-Short-Term-Memory-Techniques)
-
-🔗 [BERTTune: Fine-Tuning Neural Machine Translation with BERTScore](https://aclanthology.org/2021.acl-short.115.pdf)
-
-🔗 [Fine-tuning Large Language Models for Adaptive Machine Translation](https://arxiv.org/pdf/2312.12740v1)
-
-🔗 [NMT mBART50-Machine-Translation](https://github.com/Vu0401/NMT_mBART50-Machine-Translation)
-
-🔗 [T5](https://huggingface.co/docs/transformers/model_doc/t5)
+- **Output**: Vietnamese translation  
+  _Output_: `"Xin chào, bạn có khỏe không?"`
 
 ---
 
-## 📄**Report**
-🔗 [Report Link](https://www.overleaf.com/5415482843dvgjybfhpscv#72238e)
+## 📚 Dataset
+
+**Hugging Face Dataset:** [ncduy/mt-en-vi](https://huggingface.co/datasets/ncduy/mt-en-vi)
+
+| Split       | # Examples  |
+|-------------|-------------|
+| Train       | 2,884,451   |
+| Validation  | 11,316      |
+| Test        | 11,225      |
+
+Each record includes:
+- `en`: English sentence
+- `vi`: Vietnamese sentence
+- `source`: Original dataset source
 
 ---
-## 📽️ **Presentation**
-🔗 [Presentation link](https://husteduvn-my.sharepoint.com/:p:/g/personal/thanh_lh225458_sis_hust_edu_vn/EZsFflPryDhKmrbz-KXZpVkBXdaCxsAYysBs5ec1Wp6UVA?e=tdTHb3)
+
+## 🔄 Preprocessing Pipeline
+
+- Normalize Unicode and diacritics
+- Remove HTML, URLs, redundant spaces
+- Named Entity Recognition using spaCy
+- Tokenization and case normalization
+- Data cleaning tailored for each model type
+
+---
+
+## 🤖 Models
+
+### ✅ Rule-Based (RBMT)
+- Rule templates based on Vietnamese grammar structure
+- CFG parsing, Transfer grammar, TAM mapping
+
+### ✅ Statistical (SMT)
+- IBM alignment models
+- Phrase table & language model
+- Decoded using a noisy channel formulation
+
+### ✅ Neural (NMT)
+- Encoder-Decoder with attention
+- Pretrained: BERT, GPT, mBART50, T5
+- Beam Search, Coverage, and Pointer Generator
+
+---
+
+## 📊 Results
+
+- NMT provides superior fluency and context preservation
+- SMT performs well on phrase translation
+- RBMT offers structural clarity but lacks flexibility
+- Metrics: BLEU, ROUGE-L, METEOR, COMET, BERTScore
+
+---
+
+## 📄 Report & 📽️ Presentation
+
+📘 **Report**: [Overleaf Report](https://www.overleaf.com/5415482843dvgjybfhpscv#72238e)  
+🎞️ **Presentation**: [Powerpoint](https://husteduvn-my.sharepoint.com/:p:/g/personal/thanh_lh225458_sis_hust_edu_vn/ETnqyxmFsBhEiZ7JjPRouikBK2uBg68idFW2ULD4LlKNYw?e=1QuQPN&fbclid=IwY2xjawKgnn5leHRuA2FlbQIxMABicmlkETFabFVyRTVQTnJEMmJOdHhDAR5hLq9Rcxg81FMn_SXBi942TMgEQPHE0wFt0RD3SienVGWOx-yGR3191XeRfw_aem_M50p8C6oGJIytDMLzo0aQw)
+
+---
+
+## 📖 References
+
+- [BLEU](https://aclanthology.org/P02-1040.pdf)  
+- [ROUGE](https://aclanthology.org/W04-1013.pdf)  
+- [METEOR](https://aclanthology.org/W05-0909.pdf)  
+- [COMET](https://aclanthology.org/2020.emnlp-main.213.pdf)  
+- [BERTScore](https://openreview.net/pdf?id=SkeHuCVFDr)  
+- [mBART50 GitHub](https://github.com/Vu0401/NMT_mBART50-Machine-Translation)  
+- [T5 Documentation](https://huggingface.co/docs/transformers/model_doc/t5)
+
+---
+
+> *Developed by Group 13, Hanoi University of Science and Technology – School of Information and Communication Technology*
