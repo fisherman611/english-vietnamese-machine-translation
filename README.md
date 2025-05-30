@@ -75,7 +75,7 @@ Install the required dependencies:
 pip install -r requirements.txt
 ```
 ## **Download the pretrained model**
-Download the pretrained model checkpoints from this [OneDrive link]((https://husteduvn-my.sharepoint.com/:f:/g/personal/thanh_lh225458_sis_hust_edu_vn/EjAIwPiRrv5FvVhBlRwUt28B4fkWE8m1uTTA9ggHncsW8Q?e=g751uM))
+Download the pretrained model checkpoints from this [OneDrive link](https://husteduvn-my.sharepoint.com/:f:/g/personal/thanh_lh225458_sis_hust_edu_vn/EjAIwPiRrv5FvVhBlRwUt28B4fkWE8m1uTTA9ggHncsW8Q?e=g751uM)
 
 Place the downloaded checkpoint in the `checkpoint/` directory within the repository.
 
