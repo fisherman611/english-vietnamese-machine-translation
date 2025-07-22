@@ -1,91 +1,239 @@
+"""
+English to Vietnamese Machine Translation Web Application
+
+This module provides a Gradio-based web interface for translating English text
+to Vietnamese using multiple translation approaches including rule-based,
+statistical, and neural machine translation models.
+"""
+
 import logging
-from typing import Dict, Any, Tuple
+from pathlib import Path
+from typing import Dict, Any, Tuple, Optional
 import torch
 import gradio as gr
+
 from infer import ModelLoader, DEVICE, Translator
 from models.statistical_mt import LanguageModel
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()]
-)
-logger = logging.getLogger(__name__)
+# =============================================================================
+# CONFIGURATION & CONSTANTS
+# =============================================================================
 
-# Store models and tokenizers
-MODELS: Dict[str, Tuple[Any, Any]] = {
-    "mbart50": (None, None),
-    "mt5": (None, None),
-    "rbmt": (None, None),
-    "smt": (None, None)
+# Application metadata
+APP_TITLE = "English to Vietnamese Machine Translation"
+APP_DESCRIPTION = "Advanced AI-powered translation with multiple model options"
+MAX_INPUT_LENGTH = 1000
+DEFAULT_MODEL = "mbart50"
+
+# Example questions for users to try
+EXAMPLE_QUESTIONS = [
+    "Hello, how are you today?",
+    "What time is it now?",
+    "I would like to order some food.",
+    "Where is the nearest hospital?",
+    "Can you help me with directions to the airport?",
+    "The weather is beautiful today.",
+    "I am learning Vietnamese language.",
+    "Thank you for your help.",
+    "How much does this cost?",
+    "I need to book a hotel room.",
+    "What is your favorite Vietnamese dish?",
+    "I love traveling to Vietnam.",
+    "Could you please speak more slowly?",
+    "I don't understand what you're saying.",
+    "Have a wonderful day!"
+]
+
+# Model configuration
+MODEL_CHOICES = [
+    ("Rule-Based MT (RBMT)", "rbmt"),
+    ("Statistical MT (SMT)", "smt"),
+    ("MBart50 (Neural)", "mbart50"),
+    ("mT5 (Neural)", "mt5")
+]
+
+MODEL_DESCRIPTIONS = {
+    "rbmt": "Rule-based approach using linguistic rules and dictionaries",
+    "smt": "Statistical model trained on parallel corpora",
+    "mbart50": "Facebook's multilingual BART model",
+    "mt5": "Google's multilingual T5 transformer"
 }
 
-def initialize_models(model_types: list[str] = ["mbart50", "mt5", "rbmt", "smt"]) -> None:
-    """Initialize translation models and store them in MODELS dictionary.
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
 
-    Args:
-        model_types: List of model types to initialize.
-    """
-    global MODELS
-    for model_type in model_types:
-        try:
-            if model_type == "mbart50":
-                logger.info("Loading MBart50 model...")
-                MODELS["mbart50"] = ModelLoader.load_mbart50()
-                logger.info(f"MBart50 model loaded on {DEVICE}")
-            elif model_type == "mt5":
-                logger.info("Loading MT5 model...")
-                MODELS["mt5"] = ModelLoader.load_mt5()
-                logger.info(f"MT5 model loaded on {DEVICE}")
-            elif model_type == "rbmt":
-                logger.info("Initializing RBMT...")
-                from models.rule_based_mt import TransferBasedMT
-                MODELS["rbmt"] = (TransferBasedMT(), None)
-                logger.info("RBMT initialized")
-            elif model_type == "smt":
-                logger.info("Initializing SMT...")
-                MODELS["smt"] = (ModelLoader.load_smt(), None)
-                logger.info("SMT initialized")
-        except Exception as e:
-            logger.error(f"Failed to initialize {model_type}: {str(e)}")
-            MODELS[model_type] = (None, None)
+def setup_logging() -> logging.Logger:
+    """Configure and return logger instance."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler()]
+    )
+    return logging.getLogger(__name__)
 
-def translate_text(model_type: str, input_text: str) -> str:
-    """Translate input text using the selected model.
+logger = setup_logging()
 
-    Args:
-        model_type: Type of model to use ('rbmt', 'smt', 'mbart50', 'mt5').
-        input_text: English text to translate.
+# =============================================================================
+# MODEL MANAGEMENT
+# =============================================================================
 
-    Returns:
-        Translated text or error message.
-    """
-    try:
-        model, tokenizer = MODELS.get(model_type, (None, None))
-        if model is None:
-            return f"Error: Model '{model_type}' not loaded or not supported."
-        if model_type == "rbmt":
-            return Translator.translate_rbmt(input_text)
+class ModelManager:
+    """Manages loading and storage of translation models."""
+    
+    def __init__(self):
+        """Initialize model storage."""
+        self.models: Dict[str, Tuple[Any, Any]] = {
+            "mbart50": (None, None),
+            "mt5": (None, None),
+            "rbmt": (None, None),
+            "smt": (None, None)
+        }
+    
+    def initialize_models(self, model_types: list[str] = None) -> None:
+        """Initialize specified translation models.
+        
+        Args:
+            model_types: List of model types to initialize. 
+                        Defaults to all available models.
+        """
+        if model_types is None:
+            model_types = ["mbart50", "mt5", "rbmt", "smt"]
+        
+        logger.info("Starting model initialization...")
+        
+        for model_type in model_types:
+            try:
+                self._load_single_model(model_type)
+            except Exception as e:
+                logger.error(f"Failed to initialize {model_type}: {str(e)}")
+                self.models[model_type] = (None, None)
+        
+        logger.info("Model initialization complete.")
+    
+    def _load_single_model(self, model_type: str) -> None:
+        """Load a single model based on its type.
+        
+        Args:
+            model_type: Type of model to load.
+        """
+        logger.info(f"Loading {model_type.upper()} model...")
+        
+        if model_type == "mbart50":
+            self.models["mbart50"] = ModelLoader.load_mbart50()
+            logger.info(f"MBart50 model loaded on {DEVICE}")
+            
+        elif model_type == "mt5":
+            self.models["mt5"] = ModelLoader.load_mt5()
+            logger.info(f"MT5 model loaded on {DEVICE}")
+            
+        elif model_type == "rbmt":
+            from models.rule_based_mt import TransferBasedMT
+            self.models["rbmt"] = (TransferBasedMT(), None)
+            logger.info("RBMT initialized")
+            
         elif model_type == "smt":
-            return Translator.translate_smt(input_text, model)
+            self.models["smt"] = (ModelLoader.load_smt(), None)
+            logger.info("SMT initialized")
+        
+        else:
+            raise ValueError(f"Unknown model type: {model_type}")
+    
+    def get_model(self, model_type: str) -> Tuple[Any, Any]:
+        """Get model and tokenizer for specified type.
+        
+        Args:
+            model_type: Type of model to retrieve.
+            
+        Returns:
+            Tuple of (model, tokenizer).
+        """
+        return self.models.get(model_type, (None, None))
+    
+    def is_model_loaded(self, model_type: str) -> bool:
+        """Check if a model is loaded and ready.
+        
+        Args:
+            model_type: Type of model to check.
+            
+        Returns:
+            True if model is loaded, False otherwise.
+        """
+        model, _ = self.get_model(model_type)
+        return model is not None
+
+# =============================================================================
+# TRANSLATION SERVICE
+# =============================================================================
+
+class TranslationService:
+    """Handles translation requests using different models."""
+    
+    def __init__(self, model_manager: ModelManager):
+        """Initialize translation service.
+        
+        Args:
+            model_manager: Instance of ModelManager for accessing models.
+        """
+        self.model_manager = model_manager
+    
+    def translate(self, model_type: str, input_text: str) -> str:
+        """Translate input text using the selected model.
+        
+        Args:
+            model_type: Type of model to use for translation.
+            input_text: English text to translate.
+            
+        Returns:
+            Translated Vietnamese text or error message.
+        """
+        # Input validation
+        if not input_text or not input_text.strip():
+            return "Please enter some text to translate."
+        
+        if len(input_text) > MAX_INPUT_LENGTH:
+            return f"Input text too long. Maximum {MAX_INPUT_LENGTH} characters allowed."
+        
+        # Check if model is loaded
+        if not self.model_manager.is_model_loaded(model_type):
+            return f"Error: Model '{model_type}' is not loaded or not supported."
+        
+        try:
+            return self._perform_translation(model_type, input_text.strip())
+        except Exception as e:
+            logger.error(f"Translation error with {model_type}: {str(e)}")
+            return f"Translation failed: {str(e)}"
+    
+    def _perform_translation(self, model_type: str, text: str) -> str:
+        """Perform the actual translation based on model type.
+        
+        Args:
+            model_type: Type of model to use.
+            text: Text to translate.
+            
+        Returns:
+            Translated text.
+        """
+        model, tokenizer = self.model_manager.get_model(model_type)
+        
+        if model_type == "rbmt":
+            return Translator.translate_rbmt(text)
+        elif model_type == "smt":
+            return Translator.translate_smt(text, model)
         elif model_type == "mbart50":
-            return Translator.translate_mbart50(input_text, model, tokenizer)
-        else:  # mt5
-            return Translator.translate_mt5(input_text, model, tokenizer)
-    except Exception as e:
-        return f"Error during translation: {str(e)}"
+            return Translator.translate_mbart50(text, model, tokenizer)
+        elif model_type == "mt5":
+            return Translator.translate_mt5(text, model, tokenizer)
+        else:
+            raise ValueError(f"Unknown model type: {model_type}")
 
-# Initialize models before launching the app
-logger.info("Starting model initialization...")
-initialize_models()
-logger.info("Model initialization complete.")
+# =============================================================================
+# UI STYLING
+# =============================================================================
 
-# Define Gradio interface
-with gr.Blocks(
-    theme="soft", 
-    title="English to Vietnamese Translator",
-    css="""
+def get_custom_css() -> str:
+    """Return custom CSS styles for the application."""
+    return """
     /* Root variables for consistent theming */
     :root {
         --primary-color: #2563eb;
@@ -192,13 +340,6 @@ with gr.Blocks(
         margin-bottom: 2rem;
     }
 
-    .model-label {
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 0.5rem;
-        display: block;
-    }
-
     .gr-dropdown {
         border-radius: var(--border-radius) !important;
         border: 2px solid var(--border-color) !important;
@@ -209,31 +350,6 @@ with gr.Blocks(
     .gr-dropdown:focus-within {
         border-color: var(--primary-color) !important;
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
-    }
-
-    .gr-dropdown .options {
-        background: var(--background-primary) !important;
-        border: 1px solid var(--border-color) !important;
-        border-radius: var(--border-radius) !important;
-        box-shadow: var(--shadow-lg) !important;
-    }
-
-    .gr-dropdown .options .item {
-        padding: 0.75rem 1rem !important;
-        transition: var(--transition) !important;
-        border-radius: 8px !important;
-        margin: 0.25rem !important;
-    }
-
-    .gr-dropdown .options .item:hover {
-        background-color: var(--background-secondary) !important;
-        cursor: pointer;
-        transform: translateY(-1px);
-    }
-
-    .gr-dropdown .options .item.selected {
-        background-color: var(--primary-color) !important;
-        color: white !important;
     }
 
     /* Input/Output sections */
@@ -344,27 +460,74 @@ with gr.Blocks(
         left: 100%;
     }
 
-    /* Loading animation */
-    .loading {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        border-top-color: white;
-        animation: spin 1s ease-in-out infinite;
-        margin-right: 0.5rem;
+    /* Clear button styling */
+    .gr-button[variant="secondary"] {
+        background: var(--background-secondary) !important;
+        color: var(--text-secondary) !important;
+        border: 2px solid var(--border-color) !important;
+        border-radius: var(--border-radius) !important;
+        transition: var(--transition) !important;
+        font-weight: 500 !important;
     }
 
-    @keyframes spin {
-        to { transform: rotate(360deg); }
+    .gr-button[variant="secondary"]:hover {
+        background: var(--error-color) !important;
+        color: white !important;
+        border-color: var(--error-color) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: var(--shadow-md) !important;
     }
 
-    /* Progress bar styling */
-    .progress-bar {
+    /* Examples section */
+    .examples-section {
+        margin: 2rem 0;
+        padding: 1.5rem;
+        background: var(--background-secondary);
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+    }
+
+    .examples-title {
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1.1rem;
+    }
+
+    .examples-title::before {
+        content: "💡";
+        font-size: 1.2rem;
+    }
+
+    /* Style for example buttons */
+    .gr-examples .gr-button {
+        background: var(--background-primary) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+        padding: 0.5rem 1rem !important;
+        margin: 0.25rem !important;
+        font-size: 0.9rem !important;
+        color: var(--text-primary) !important;
+        transition: var(--transition) !important;
+        text-align: left !important;
+        max-width: none !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+    }
+
+    .gr-examples .gr-button:hover {
         background: var(--primary-color) !important;
-        border-radius: 4px !important;
-        height: 4px !important;
+        color: white !important;
+        border-color: var(--primary-color) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: var(--shadow-sm) !important;
+    }
+
+    .gr-examples .gr-button:active {
+        transform: translateY(0) !important;
     }
 
     /* Model info cards */
@@ -476,92 +639,179 @@ with gr.Blocks(
         background: var(--primary-hover);
     }
     """
-) as demo:
-    # Header section
-    with gr.Column(elem_classes=["header"]):
-        gr.HTML("""
-            <h1>🌐 English to Vietnamese Machine Translation</h1>
-            <p>Advanced AI-powered translation with multiple model options</p>
-        """)
 
-    # Main content
-    with gr.Column(elem_classes=["main-container"]):
-        # Model selection
-        with gr.Row(elem_classes=["model-section"]):
-            model_choice = gr.Dropdown(
-                choices=[
-                    ("Rule-Based MT (RBMT)", "rbmt"),
-                    ("Statistical MT (SMT)", "smt"),
-                    ("MBart50 (Neural)", "mbart50"),
-                    ("mT5 (Neural)", "mt5")
-                ],
-                label="🤖 Select Translation Model",
-                value="mbart50",
-                elem_classes=["gr-dropdown"],
-                info="Choose the translation approach that best fits your needs"
-            )
+# =============================================================================
+# UI COMPONENTS
+# =============================================================================
 
-        # Input/Output section
-        with gr.Row(elem_classes=["io-section"]):
-            with gr.Column(elem_classes=["input-section"]):
-                gr.HTML('<div class="section-title">📝 Input Text (English)</div>')
-                input_text = gr.Textbox(
-                    placeholder="Enter your English text here...\n\nExample: Hello, how are you today?",
-                    lines=6,
-                    elem_classes=["gr-textbox"],
-                    show_label=False,
-                    container=False
-                )
-            
-            with gr.Column(elem_classes=["output-section"]):
-                gr.HTML('<div class="section-title">🇻🇳 Translation (Vietnamese)</div>')
-                output_text = gr.Textbox(
-                    placeholder="Translation will appear here...",
-                    lines=6,
-                    elem_classes=["gr-textbox"],
-                    interactive=False,
-                    show_label=False,
-                    container=False
-                )
+def create_header() -> gr.HTML:
+    """Create the application header."""
+    return gr.HTML(f"""
+        <h1>🌐 {APP_TITLE}</h1>
+        <p>{APP_DESCRIPTION}</p>
+    """)
 
-        # Translate button
-        translate_button = gr.Button(
-            "🚀 Translate Text",
-            elem_classes=["translate-button"],
-            variant="primary",
-            size="lg"
-        )
-
-        # Model information cards
-        gr.HTML("""
-            <div class="model-info">
-                <div class="model-card">
-                    <h3>RBMT</h3>
-                    <p>Rule-based approach using linguistic rules and dictionaries</p>
-                </div>
-                <div class="model-card">
-                    <h3>SMT</h3>
-                    <p>Statistical model trained on parallel corpora</p>
-                </div>
-                <div class="model-card">
-                    <h3>MBart50</h3>
-                    <p>Facebook's multilingual BART model</p>
-                </div>
-                <div class="model-card">
-                    <h3>mT5</h3>
-                    <p>Google's multilingual T5 transformer</p>
-                </div>
+def create_model_info_cards() -> gr.HTML:
+    """Create model information cards."""
+    cards_html = '<div class="model-info">'
+    
+    for display_name, model_key in MODEL_CHOICES:
+        model_name = display_name.split(" ")[0]  # Extract short name
+        description = MODEL_DESCRIPTIONS[model_key]
+        
+        cards_html += f"""
+            <div class="model-card">
+                <h3>{model_name}</h3>
+                <p>{description}</p>
             </div>
-        """)
+        """
+    
+    cards_html += '</div>'
+    return gr.HTML(cards_html)
 
-    # Bind the translation function to the button
-    translate_button.click(
-        fn=translate_text,
-        inputs=[model_choice, input_text],
-        outputs=output_text,
-        show_progress=True
+def create_examples_section() -> gr.Examples:
+    """Create examples section with sample questions."""
+    return gr.Examples(
+        examples=[[example] for example in EXAMPLE_QUESTIONS],
+        inputs=None,  # Will be set when creating the interface
+        label="💡 Try these example sentences:",
+        examples_per_page=5
     )
 
-# Launch the app
+# =============================================================================
+# APPLICATION SETUP
+# =============================================================================
+
+def create_gradio_interface() -> gr.Blocks:
+    """Create and configure the Gradio interface."""
+    
+    # Initialize services
+    model_manager = ModelManager()
+    translation_service = TranslationService(model_manager)
+    
+    # Initialize models
+    model_manager.initialize_models()
+    
+    # Create Gradio interface
+    with gr.Blocks(
+        theme="soft",
+        title=APP_TITLE,
+        css=get_custom_css()
+    ) as demo:
+        
+        # Header section
+        with gr.Column(elem_classes=["header"]):
+            create_header()
+        
+        # Main content
+        with gr.Column(elem_classes=["main-container"]):
+            
+            # Model selection
+            with gr.Row(elem_classes=["model-section"]):
+                model_choice = gr.Dropdown(
+                    choices=MODEL_CHOICES,
+                    label="🤖 Select Translation Model",
+                    value=DEFAULT_MODEL,
+                    elem_classes=["gr-dropdown"],
+                    info="Choose the translation approach that best fits your needs"
+                )
+            
+            # Input/Output section
+            with gr.Row(elem_classes=["io-section"]):
+                with gr.Column(elem_classes=["input-section"]):
+                    gr.HTML('<div class="section-title">📝 Input Text (English)</div>')
+                    input_text = gr.Textbox(
+                        placeholder="Enter your English text here or click on an example below...",
+                        lines=6,
+                        max_lines=10,
+                        elem_classes=["gr-textbox"],
+                        show_label=False,
+                        container=False
+                    )
+                
+                with gr.Column(elem_classes=["output-section"]):
+                    gr.HTML('<div class="section-title">🇻🇳 Translation (Vietnamese)</div>')
+                    output_text = gr.Textbox(
+                        placeholder="Translation will appear here...",
+                        lines=6,
+                        max_lines=10,
+                        elem_classes=["gr-textbox"],
+                        interactive=False,
+                        show_label=False,
+                        container=False
+                    )
+            
+            # Examples section
+            with gr.Row(elem_classes=["examples-section"]):
+                examples = gr.Examples(
+                    examples=[[example] for example in EXAMPLE_QUESTIONS],
+                    inputs=[input_text],
+                    label="💡 Try these example sentences:",
+                    examples_per_page=5,
+                    run_on_click=False
+                )
+            
+            # Action buttons
+            with gr.Row():
+                translate_button = gr.Button(
+                    "🚀 Translate Text",
+                    elem_classes=["translate-button"],
+                    variant="primary",
+                    size="lg",
+                    scale=3
+                )
+                clear_button = gr.Button(
+                    "🗑️ Clear",
+                    variant="secondary",
+                    size="lg",
+                    scale=1
+                )
+            
+            # Model information cards
+            create_model_info_cards()
+        
+        # Bind the translation function to the button
+        translate_button.click(
+            fn=translation_service.translate,
+            inputs=[model_choice, input_text],
+            outputs=output_text,
+            show_progress=True
+        )
+        
+        # Clear button functionality
+        clear_button.click(
+            fn=lambda: ("", ""),
+            inputs=[],
+            outputs=[input_text, output_text]
+        )
+        
+        # Also allow Enter key to trigger translation
+        input_text.submit(
+            fn=translation_service.translate,
+            inputs=[model_choice, input_text],
+            outputs=output_text,
+            show_progress=True
+        )
+    
+    return demo
+
+# =============================================================================
+# MAIN EXECUTION
+# =============================================================================
+
+def main():
+    """Main function to run the application."""
+    try:
+        demo = create_gradio_interface()
+        demo.launch(
+            server_name="0.0.0.0",
+            server_port=7860,
+            share=False,
+            show_error=True
+        )
+    except Exception as e:
+        logger.error(f"Failed to launch application: {str(e)}")
+        raise
+
 if __name__ == "__main__":
-    demo.launch()
+    main()
